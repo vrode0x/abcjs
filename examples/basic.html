@@ -7,7 +7,9 @@
 	<link rel="icon" href="favicon.ico" type="image/x-icon"/>
 	<title>abcjs: Basic Demo</title>
 	<script src="../bin/abcjs_basic_5.3.5-min.js" type="text/javascript"></script>
+	<!--<script src="../bin/abcjs_midi_5.2.0-min.js" type="text/javascript"></script>-->
 	<script type="text/javascript">
+		/* globals ABCJS,memo */
 		var abc = "T: Cooley's\n" +
 			"M: 4/4\n" +
 			"L: 1/8\n" +
@@ -19,13 +21,37 @@
 			"eB B2 eBgB|eB B2 defg|afe^c dBAF|DEFD E2:|";
 
 		function load() {
-			ABCJS.renderAbc("paper", abc);
+			memo.value = abc;
+			//renderText(abc);
+		}
+
+		function renderText(abc) {
+			ABCJS.renderAbc("paper", abc,
+					{
+						//generateDownload: true,
+						//generateInline: true,
+						//hint_measures: true,
+						staffwidth: 1600,
+      			//viewportVertical: true,
+						responsive: 'resize',
+      			wrap: { minSpacing: 1.5, onlyLineLimit: 4, lastLineLimit: 3 },
+						clickListener: function(abcElem, tuneNumber, classes) {
+								console.log(abcElem, tuneNumber, classes);
+							}
+					});
+		}
+
+		function render() {
+			renderText(memo.value);
+			//ABCJS.renderMidi("midi", abc, { generateDownload: true, generateInline: false });
 		}
 
 	</script>
 </head>
 <body onload="load()">
-
 <div id="paper"></div>
+<button onclick="render()">Render</button>
+<div><textarea  id="memo" cols="150" rows="20"></textarea> </div>
+<div id="midi"></div>
 </body>
 </html>

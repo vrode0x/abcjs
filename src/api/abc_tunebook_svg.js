@@ -230,6 +230,8 @@ function calcLineBreaks(widths, lineBreakPoint) {
 }
 
 function doLineWrapping(div, tune, tuneNumber, abcString, params) {
+  if (params.onBeforeLineWrapping)
+    params.onBeforeLineWrapping(div, tune, tuneNumber, abcString, params);//vr
 	var engraver_controller = new EngraverController(div, params);
 	var widths = engraver_controller.getMeasureWidths(tune);
     // For calculating how much can go on the line, it depends on the width of the line. It is a convenience to just divide it here
@@ -270,6 +272,8 @@ function doLineWrapping(div, tune, tuneNumber, abcString, params) {
 	    }
     }
 
+  tune.lineBreaks = ret.lineBreaks;//vr
+
 	var abcParser = new Parse();
 	var revisedParams = {
 	    lineBreaks: ret.lineBreaks,
@@ -283,6 +287,8 @@ function doLineWrapping(div, tune, tuneNumber, abcString, params) {
 
 	abcParser.parse(abcString, revisedParams);
 	tune = abcParser.getTune();
+  tune.lineBreaks = ret.lineBreaks;//vr
+  if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params);//vr
 	renderOne(div, tune, revisedParams, tuneNumber);
 	return tune;
 }

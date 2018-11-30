@@ -27,6 +27,8 @@ module.exports = (env) => {
 				}
 			]
 		},
+		//devtool: "source-map", //vr
+		//vr >>>
 		plugins: [
 			new UglifyJsWebpackPlugin({
 				extractComments: {

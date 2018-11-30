@@ -78,7 +78,22 @@ G4 F4 E8|D4 E4 C8-|C8 F8|E4 E4 C8|]
 				paper_id: "paper0",
 				warnings_id:"warnings",
 				abcjsParams: {
-					add_classes: true
+					add_classes: true,
+					staffwidth: 800,
+					//responsive: 'resize',
+					//scale: .8,
+					clickListener: function(abcElem, tuneNumber, classes) {
+        		if (abcElem.el_type === 'note') {
+							var w;
+							//w = abc_editor.div.getBoundingClientRect();
+							//w = abcElem.abselem.elemset[0].getBoundingClientRect();
+							w = paper0.clientWidth;
+							w = abcElem.abselem.elemset[0].offsetLeft;
+							console.log(w);
+							var s = abc_editor.div.innerHTML;
+							console.log(s);
+        		}
+					},
 				}
 			}
 		);
@@ -92,6 +107,7 @@ G4 F4 E8|D4 E4 C8-|C8 F8|E4 E4 C8|]
 			var paperSelector = this.attributes["data-paper"].value;
 			var paper = document.querySelectorAll(paperSelector)[0];
 
+			//abc_editor.tunes[0].timing128 = true;
 			ABCJS.startAnimation(paper, abc_editor.tunes[0], params);
 			pauseButton.disabled = false;
 		};

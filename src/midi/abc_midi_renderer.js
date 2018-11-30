@@ -40,6 +40,33 @@ var rendererFactory;
 		}
 	};
 
+	//vr >>>
+	Midi.prototype.encodeUTF8 = function (string) {
+		string = string.replace(/\r\n/g,"\n");
+		var utftext = "";
+
+		for (var n = 0; n < string.length; n++) {
+
+			var c = string.charCodeAt(n);
+
+			if (c < 128) {
+				utftext += String.fromCharCode(c);
+			}
+			else if((c > 127) && (c < 2048)) {
+				utftext += String.fromCharCode((c >> 6) | 192);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+			else {
+				ftext += String.fromCharCode((c >> 12) | 224);
+				ftext += String.fromCharCode(((c >> 6) & 63) | 128);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+		}
+
+		return utftext;
+	};
+	//vr <<<
+
 	Midi.prototype.setGlobalInfo = function(qpm, name) {
 		//console.log("setGlobalInfo",qpm, key, time, name);
 		if (this.trackcount === 0) {
@@ -49,6 +76,7 @@ var rendererFactory;
 			//00 FF 5902 03 00 - key signature
 			//00 FF 5804 04 02 30 08 - time signature
 			if (name) {
+				name = this.encodeUTF8(name); //vr
 				this.track += "%00%FF%03" + toHex(name.length, 2);
 				for (var i = 0; i < name.length; i++)
 					this.track += toHex(name.charCodeAt(i), 2);
