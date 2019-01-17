@@ -29,13 +29,13 @@ module.exports = (env) => {
 		},
 		//devtool: "source-map", //vr
 		//vr >>>
-		plugins: [
-			new UglifyJsWebpackPlugin({
-				extractComments: {
-					condition: /\!$/,
-					banner: banner
-				}
-			})
-		]
+		//plugins: [
+		//	new UglifyJsWebpackPlugin({
+		//		extractComments: {
+		//			condition: /\!$/,
+		//			banner: banner
+		//		}
+		//	})
+		//]
 	};
 };
