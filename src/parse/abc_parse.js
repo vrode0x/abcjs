@@ -22,6 +22,7 @@ var ParseHeader = require('./abc_parse_header');
 var parseKeyVoice = require('./abc_parse_key_voice');
 var Tokenizer = require('./abc_tokenizer');
 var transpose = require('./abc_transpose');
+var wrap = require('./wrap_lines');
 
 var Tune = require('../data/abc_tune');
 
@@ -75,7 +76,7 @@ var Parse = function() {
 			this.textBlock = "";
 			this.score_is_present = false;	// Can't have original V: lines when there is the score directive
 			this.inEnding = false;
-			this.inTie = false;
+			this.inTie = [false];
 			this.inTieChord = {};
 			this.vocalPosition = "auto";
 			this.dynamicPosition = "auto";
@@ -880,6 +881,7 @@ var Parse = function() {
 					params.key.accidentals.push(multilineVars.key.explicitAccidentals[i]);
 			}
 		}
+		multilineVars.targetKey = params.key;
 		if (params.key.explicitAccidentals)
 			delete params.key.explicitAccidentals;
 		parseKeyVoice.addPosToKey(params.clef, params.key);
@@ -1101,6 +1103,7 @@ var Parse = function() {
 		}
 		var el = { };
 
+		var overlayLevel = 0;
 		while (i < line.length)
 		{
 			var startI = i;
@@ -1157,6 +1160,7 @@ var Parse = function() {
 					if (ret[0] > 0) {
 						tune.appendElement('overlay', startOfLine, startOfLine+1, {});
 						i += 1;
+						overlayLevel++;
 					}
 
 					ret = letter_to_chord(line, i);
@@ -1219,6 +1223,7 @@ var Parse = function() {
 				ret = letter_to_bar(line, i);
 				if (ret[0] > 0) {
 					// This is definitely a bar
+					overlayLevel = 0;
 					if (el.gracenotes !== undefined) {
 						// Attach the grace note to an invisible note
 						el.rest = { type: 'spacer' };
@@ -1267,14 +1272,14 @@ var Parse = function() {
 					}
 					i += ret[0];
 					var cv = multilineVars.currentVoice ? multilineVars.currentVoice.staffNum + '-' + multilineVars.currentVoice.index : 'ONLY';
-					if (multilineVars.lineBreaks) {
-						if (!multilineVars.barCounter[cv])
-							multilineVars.barCounter[cv] = 0;
-						var breakNow = multilineVars.lineBreaks[''+multilineVars.barCounter[cv]];
-						multilineVars.barCounter[cv]++;
-						if (breakNow)
-							startNewLine();
-					}
+					// if (multilineVars.lineBreaks) {
+					// 	if (!multilineVars.barCounter[cv])
+					// 		multilineVars.barCounter[cv] = 0;
+					// 	var breakNow = multilineVars.lineBreaks[''+multilineVars.barCounter[cv]];
+					// 	multilineVars.barCounter[cv]++;
+					// 	if (breakNow)
+					// 		startNewLine();
+					// }
 				} else if (line[i] === '&') {	// backtrack to beginning of measure
 					warn("Overlay not yet supported", line, i);
 					i++;
@@ -1361,9 +1366,9 @@ var Parse = function() {
 										multilineVars.next_note_duration = 0;
 									}
 
-									if (multilineVars.inTie) {
+									if (multilineVars.inTie[overlayLevel]) {
 										parseCommon.each(el.pitches, function(pitch) { pitch.endTie = true; });
-										multilineVars.inTie = false;
+										multilineVars.inTie[overlayLevel] = false;
 									}
 
 									if (tripletNotesLeft > 0) {
@@ -1385,7 +1390,7 @@ var Parse = function() {
 												break;
 											case '-':
 												parseCommon.each(el.pitches, function(pitch) { pitch.startTie = {}; });
-												multilineVars.inTie = true;
+												multilineVars.inTie[overlayLevel] = true;
 												break;
 											case '>':
 											case '<':
@@ -1448,7 +1453,7 @@ var Parse = function() {
 						// Single pitch
 						var el2 = {};
 						var core = getCoreNote(line, i, el2, true);
-						if (el2.endTie !== undefined) multilineVars.inTie = true;
+						if (el2.endTie !== undefined) multilineVars.inTie[overlayLevel] = true;
 						if (core !== null) {
 							if (core.pitch !== undefined) {
 								el.pitches = [ { } ];
@@ -1477,17 +1482,17 @@ var Parse = function() {
 							if (core.decoration !== undefined) el.decoration = core.decoration;
 							if (core.graceNotes !== undefined) el.graceNotes = core.graceNotes;
 							delete el.startSlur;
-							if (multilineVars.inTie) {
+							if (multilineVars.inTie[overlayLevel]) {
 								if (el.pitches !== undefined) {
 									el.pitches[0].endTie = true;
-									multilineVars.inTie = false;
+									multilineVars.inTie[overlayLevel] = false;
 								} else if (el.rest.type !== 'spacer') {
 									el.rest.endTie = true;
-									multilineVars.inTie = false;
+									multilineVars.inTie[overlayLevel] = false;
 								}
 							}
 							if (core.startTie || el.startTie)
-								multilineVars.inTie = true;
+								multilineVars.inTie[overlayLevel] = true;
 							i  = core.endChar;
 
 							if (tripletNotesLeft > 0) {
@@ -1605,10 +1610,11 @@ var Parse = function() {
 			multilineVars.globalTranspose = undefined;
 		if (switches.lineBreaks) {
 			// change the format of the the line breaks for easy testing.
+			// The line break numbers are 0-based and they reflect the last measure of the current line.
 			multilineVars.lineBreaks = {};
-			multilineVars.continueall = true;
+			//multilineVars.continueall = true;
 			for (var i = 0; i < switches.lineBreaks.length; i++)
-				multilineVars.lineBreaks[''+switches.lineBreaks[i]] = true;
+				multilineVars.lineBreaks[''+(switches.lineBreaks[i]+1)] = true; // Add 1 so that the line break is the first measure of the next line.
 		}
 		header.reset(tokenizer, warn, multilineVars, tune);
 
@@ -1684,6 +1690,8 @@ var Parse = function() {
 		if (switches.hint_measures) {
 			addHintMeasures();
 		}
+
+		wrap.wrapLines(tune, multilineVars.lineBreaks);
 	};
 };
 

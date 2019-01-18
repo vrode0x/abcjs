@@ -3,7 +3,7 @@ var tunebook = require('./src/api/abc_tunebook');
 
 var abcjs = {};
 
-abcjs.signature = "abcjs-midi v5.3.5";
+abcjs.signature = "abcjs-midi v5.6.2";
 
 Object.keys(animation).forEach(function (key) {
 	abcjs[key] = animation[key];
@@ -29,6 +29,7 @@ abcjs.midi = {
 	setLoop: midi.setLoop,
 	deviceSupportsMidi: midi.deviceSupportsMidi,
 	setRandomProgress: midi.setRandomProgress,
+	setInteractiveProgressBar: midi.setInteractiveProgressBar
 };
 
 module.exports = abcjs;

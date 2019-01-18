@@ -37,7 +37,7 @@ The main entry point is `ABCJS.renderAbc`. Many users won't need to make any oth
 | `header_only` | false | only parse the header |
 | `stop_on_warning` | false | only parse until the first warning is encountered |
 | `hint_measures` | false | repeat the next measure at the end of the previous line, with a unique css class. |
-| `wrap` | null | NOTE: this requires the parameter `staffwidth` to be set! To have the parser ignore the line breaks, and figure out the line breaks based on the size of each measure. This is an object of: `minSpacing`: 1 means to pack the notes as close as possible, 2 means to double the spacing, etc., `onlyLineLimit`: if there is very little music and a wide line, then the line is shortened so the notes are not too spread out, `lastLineLimit`: if it works out that there is a single measure on the last line, then try different `minSpacing` values until the last line is no more spread out than this limit. A reasonable default for these values is `{ minSpacing: 1.5, onlyLineLimit: 4, lastLineLimit: 3 }`. |
+| `wrap` | null | NOTE: this requires the parameter `staffwidth` to be set! To have the parser ignore the line breaks, and figure out the line breaks based on the size of each measure. This is an object of: `preferredMeasuresPerLine`: How many measures per line if there is room. If there isn't room, then use the rest of the parameters. This is optional.  `minSpacing`: 1 means to pack the notes as close as possible, 2 means to double the spacing, etc., `maxSpacing`: if there is very little music and a wide line, then the line is shortened so the notes are not too spread out, `lastLineLimit`: if it works out that there is a single measure on the last line, then try different `minSpacing` values until the last line is no more spread out than this limit. `targetHeight`: [Not yet implemented]. A reasonable default for these values is `{ minSpacing: 1.8, maxSpacing: 2.7, preferredMeasuresPerLine: 4 }`. |
 
 | `params` (for engraver) | Default | Description |
 | ------------- | ----------- | ----------- |
@@ -57,6 +57,7 @@ The main entry point is `ABCJS.renderAbc`. Many users won't need to make any oth
 | `program` | 0 | The midi program (aka "instrument") to use, if not specified in abcString. |
 | `midiTranspose` | 0 | The number of half-steps to transpose the everything, if not specified in abcString. |
 | `voicesOff` | false | Play the metronome and accompaniment; do the animation callbacks, but don't play any melody lines. |
+| `chordsOff` | false | Ignore the chords and just play the melody (and metronome if that is on). |
 | `generateDownload` | false | Whether to generate a download MIDI link. |
 | `generateInline` | true | Whether to generate the inline MIDI controls. |
 | `downloadClass` | "" | Add classes to the download controls. The classes `abcjs-download-midi` and `abcjs-midi-xxx` where `xxx` is the index of the tune are already added. This is appended to those classes. |

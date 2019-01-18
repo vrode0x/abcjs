@@ -19,6 +19,7 @@
 var parseCommon = require('./abc_common');
 var parseDirective = require('./abc_parse_directive');
 var parseKeyVoice = require('./abc_parse_key_voice');
+var vrUtils = require('../vrode/vrutils');//vr
 
 var ParseHeader = function(tokenizer, warn, multilineVars, tune) {
 	this.reset = function(tokenizer, warn, multilineVars, tune) {
@@ -28,6 +29,7 @@ var ParseHeader = function(tokenizer, warn, multilineVars, tune) {
 	this.reset(tokenizer, warn, multilineVars, tune);
 
 	this.setTitle = function(title) {
+		title = decodeURIComponent(title);//vrUtils.encodeUTF8(title); //vr
 		if (multilineVars.hasMainTitle)
 			tune.addSubtitle(tokenizer.translateString(tokenizer.stripComment(title)));	// display secondary title
 		else

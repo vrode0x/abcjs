@@ -1,3 +1,95 @@
+# Version 5.6.2
+
+## Features:
+
+* Add more chord definitions.
+
+* Support changing fonts in W: statements using $1 syntax.
+
+## Bug fixes:
+
+* Don't attach midi control listeners to the global object.
+
+* Fix some midi control visual issues.
+
+* Fix mousemove listener in the midi control, we want to consume only our events.
+
+* Sort the events for midi creation more deterministically.
+
+* Fix handling ties over a bar line when there is an overlay.
+
+* Adjust text a little when there is a box around it to be centered better.
+
+# Version 5.6.1
+
+## Bug fixes:
+
+* Fix bug where wrapping code was ignoring one SVG per line.
+
+# Version 5.6.0
+
+## Features:
+
+* Enable progress indicator dragging
+
+* Clicks on progress bar now move the indicator correctly 
+    
+## Bug fixes:
+
+* Fix the title (with unicode chars) in the downloadable MIDI file.
+
+* In midi, sort program changes before other events that happen at the same time.
+
+* Fix crash when calculating the title for a piece with a missing voice.
+
+* Fix bug where wrapping code was ignoring one SVG per line.
+
+* Fix off-by-one error when calculating line widths during wrapping.
+
+# Version 5.5.0
+
+## Features:
+
+* Add "chordsOff" parameter to just play midi of the melody.
+
+## Bug fixes:
+
+* Don't duplicate slurs on chords when using wrap.
+
+* Figure out correct accidental when transposing to a key with accidentals in the key signature.
+
+* Fix problem with calculating the height of beamed notes when the top or bottom one is middle C.
+
+# Version 5.4.2
+
+## Bug fixes:
+
+* TimingCallbacks was reporting the end of the animation at the beginning of the last event - it now waits until the end of that event.
+
+# Version 5.4.1
+
+## Bug fixes:
+
+* Improve the decision on how to break lines in line wrapping.
+
+* Don't duplicate meter when wrapping lines.
+
+* Return the correct version of the tune when doing line wrapping. 
+
+# Version 5.4.0
+
+## Features:
+
+* Add `preferredMeasuresPerLine` as a parameter to the line wrap.
+
+## Bug fixes:
+
+* Improvements to the speed and stability of the line wrapping code.
+
+* Fix lyric placement on wrapped lines.
+
+* Fix the timing of whole rests in the TimingCallback.
+
 # Version 5.3.5
 
 ## Features:

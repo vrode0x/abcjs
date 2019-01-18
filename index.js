@@ -5,7 +5,7 @@ var Parse = require('./src/parse/abc_parse');//vr
 
 var abcjs = {};
 
-abcjs.signature = "abcjs-basic v5.3.5";
+abcjs.signature = "abcjs-basic v5.6.2";
 
 Object.keys(animation).forEach(function (key) {
 	abcjs[key] = animation[key];

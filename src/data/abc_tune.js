@@ -226,11 +226,13 @@ var Tune = function() {
 					if (staff.title) {
 						var hasATitle = false;
 						for (var k = 0; k < staff.title.length; k++) {
-							if (staff.title[k]) //vr
+							if (staff.title[k]) {
 							staff.title[k] = (firstMusicLine) ? staff.title[k].name : staff.title[k].subname;
 							if (staff.title[k])
 								hasATitle = true;
 							else
+									staff.title[k] = '';
+							} else
 								staff.title[k] = '';
 						}
 						if (!hasATitle)
@@ -1208,6 +1210,7 @@ var Tune = function() {
 		// now we have all the events, but if there are multiple voices then there may be events out of order or duplicated, so normalize it.
 		timingEvents = makeSortedArray(eventHash);
 		addVerticalInfo(timingEvents);
+		timingEvents.push({ type: "end", milliseconds: voiceTimeMilliseconds })
 		return timingEvents;
 	};
 

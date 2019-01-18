@@ -15,6 +15,7 @@
 //    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 var rendererFactory;
+var vrUtils = require('../vrode/vrutils');//vr
 
 (function() {
 	"use strict";
@@ -40,33 +41,6 @@ var rendererFactory;
 		}
 	};
 
-	//vr >>>
-	Midi.prototype.encodeUTF8 = function (string) {
-		string = string.replace(/\r\n/g,"\n");
-		var utftext = "";
-
-		for (var n = 0; n < string.length; n++) {
-
-			var c = string.charCodeAt(n);
-
-			if (c < 128) {
-				utftext += String.fromCharCode(c);
-			}
-			else if((c > 127) && (c < 2048)) {
-				utftext += String.fromCharCode((c >> 6) | 192);
-				utftext += String.fromCharCode((c & 63) | 128);
-			}
-			else {
-				ftext += String.fromCharCode((c >> 12) | 224);
-				ftext += String.fromCharCode(((c >> 6) & 63) | 128);
-				utftext += String.fromCharCode((c & 63) | 128);
-			}
-		}
-
-		return utftext;
-	};
-	//vr <<<
-
 	Midi.prototype.setGlobalInfo = function(qpm, name) {
 		//console.log("setGlobalInfo",qpm, key, time, name);
 		if (this.trackcount === 0) {
@@ -76,10 +50,15 @@ var rendererFactory;
 			//00 FF 5902 03 00 - key signature
 			//00 FF 5804 04 02 30 08 - time signature
 			if (name) {
-				name = this.encodeUTF8(name); //vr
-				this.track += "%00%FF%03" + toHex(name.length, 2);
-				for (var i = 0; i < name.length; i++)
-					this.track += toHex(name.charCodeAt(i), 2);
+				name = vrUtils.encodeUTF8(name); //vr
+				this.track += "%00%FF%03" + toHex(name.length, 2);//vr
+				for (var i = 0; i < name.length; i++)//vr
+					this.track += toHex(name.charCodeAt(i), 2); //vr				// If there are multi-byte chars, we don't know how long the string will be until we create it.
+				//vr var nameArray = "";				//vr for (var i = 0; i < name.length; i++)
+				//vr 	this.track += toHex(name.charCodeAt(i), 2);
+				//vr 	nameArray += toHex(name.charCodeAt(i), 2);
+				//vr this.track += "%00%FF%03" + toHex(nameArray.length/3, 2); // Each byte is represented by three chars "%XX", so divide by 3 to get the length.
+				//vr this.track += nameArray;
 			}
 			this.endTrack();
 		}
