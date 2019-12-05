@@ -30,6 +30,7 @@ var create;
 		if (options === undefined) options = {};
 		var sequenceInst = sequence(abcTune, options);
 		var commands = flatten(sequenceInst, options);
+		if (options.onCreateMidiCommands) options.onCreateMidiCommands(abcTune, commands);//vr
 		var midi = rendererFactory();
 		var midiJs = new Preparer();
 

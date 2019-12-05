@@ -208,6 +208,8 @@ var accidentals2 = {
 	"1": "sharp",
 	"2": "dblsharp"
 };
+transpose.accidentals = accidentals; //vr
+transpose.accidentals2 = accidentals2; //vr
 transpose.note = function(multilineVars, el) {
 	// the "el" that is passed in has el.accidental, and el.pitch. "pitch" is the vertical position (0=middle C)
 	// localTranspose is the number of half steps

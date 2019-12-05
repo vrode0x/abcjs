@@ -1190,7 +1190,9 @@ var Tune = function() {
 					isTiedState = voiceTimeMilliseconds;
 			}
 		}
-		return { isTiedState: isTiedState, duration: realDuration / timeDivider, nextIsBar: nextIsBar || element.type === 'bar' };
+		if (this.timing128) realDuration = realDuration * 128; //vr
+		else realDuration = realDuration / timeDivider; //vr
+		return { isTiedState: isTiedState, duration: realDuration /*//vr / timeDivider*/, nextIsBar: nextIsBar || element.type === 'bar' };
 	};
 
 	this.makeVoicesArray = function() {
@@ -1237,6 +1239,7 @@ var Tune = function() {
 		var voices = this.makeVoicesArray();
 		for (var v = 0; v < voices.length; v++) {
 			var voiceTime = time;
+			if (this.timing128) var voiceTimeMilliseconds = voiceTime;else //vr
 			var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 			var startingRepeatElem = 0;
 			var endingRepeatElem = -1;
@@ -1253,6 +1256,7 @@ var Tune = function() {
 				isTiedState = ret.isTiedState;
 				nextIsBar = ret.nextIsBar;
 				voiceTime += ret.duration;
+				if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
 				voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 				if (element.type === 'bar') {
 					var barType = element.abcelem.type;
@@ -1268,6 +1272,7 @@ var Tune = function() {
 							isTiedState = ret.isTiedState;
 							nextIsBar = ret.nextIsBar;
 							voiceTime += ret.duration;
+							if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
 							voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 						}
 						nextIsBar = true;
