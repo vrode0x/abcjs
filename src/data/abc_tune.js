@@ -1253,6 +1253,7 @@ var Tune = function() {
 					timeDivider = beatLength * beatsPerSecond;
 				}
 				var ret = this.addElementToEvents(eventHash, element, voiceTimeMilliseconds, elements[elem].top, elements[elem].height, elements[elem].line, elements[elem].measureNumber, timeDivider, isTiedState, nextIsBar);
+				if (this.timing128) element.abcelem.milliseconds128 = voiceTimeMilliseconds;//vr from 5.11
 				isTiedState = ret.isTiedState;
 				nextIsBar = ret.nextIsBar;
 				voiceTime += ret.duration;

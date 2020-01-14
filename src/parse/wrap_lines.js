@@ -30,7 +30,7 @@ function wrapLines(tune, lineBreaks) {
 	var measureMarker = [];
 	var lastMeter = '';
 	var voiceStart = {};
-	var linesWithoutStaff = 0;
+	var linesWithoutStaff = 0;//vr
 
 	for (var i = 0; i < tune.lines.length; i++) {
 		var line = tune.lines[i];
@@ -52,7 +52,7 @@ function wrapLines(tune, lineBreaks) {
 						measureNumber[j][k] = 0;
 						measureMarker[j][k] = 0;
 					}
-					if (linesWithoutStaff > 0) currentLine[j][k] += linesWithoutStaff;
+					if (linesWithoutStaff > 0) currentLine[j][k] += linesWithoutStaff;//vr
 					var voice = voices[k];
 					for (var e = 0; e < voice.length; e++) {
 						if (startNewLine[j][k]) {
@@ -105,10 +105,10 @@ function wrapLines(tune, lineBreaks) {
 
 				}
 			}
-			linesWithoutStaff = 0;
+			linesWithoutStaff = 0;//vr
 		} else {
 			newLines.push(line);
-			linesWithoutStaff++;
+			linesWithoutStaff++;//vr
 		}
 	}
 	tune.lines = newLines;
@@ -635,10 +635,12 @@ function calcLineWraps(tune, widths, abcString, params, Parse, engraver_controll
 		lineBreaks = ff.lineBreaks;
 
 		// We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
+		if (params.optimizeFreeFormLineBreaks) {//vr ()on some files[ChildInTime.kar] suspended
 		ff = optimizeLineWidths(widths, lineBreakPoint, lineBreaks, explanation);
 		explanation.attempts.push({ type: "Optimize", failed: ff.failed, reason: ff.reason, lineBreaks: ff.lineBreaks, totals: ff.totals });
 		if (!ff.failed)
 			lineBreaks = ff.lineBreaks;
+		}//vr
 	}
 
 	// If the vertical space exceeds targetHeight, remove a line and try again. If that is too crowded, then don't use it.
