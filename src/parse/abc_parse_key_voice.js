@@ -18,7 +18,8 @@ var parseKeyVoice = {};
 		tune = tune_;
 	};
 
-	parseKeyVoice.standardKey = function(keyName, root, acc, localTranspose) {
+	//vr content getKeys moved from parseKeyVoice.standardKey();
+	function getKeys() {
 		var key1sharp = {acc: 'sharp', note: 'f'};
 		var key2sharp = {acc: 'sharp', note: 'c'};
 		var key3sharp = {acc: 'sharp', note: 'g'};
@@ -34,7 +35,7 @@ var parseKeyVoice = {};
 		var key6flat = {acc: 'flat', note: 'c'};
 		var key7flat = {acc: 'flat', note: 'F'};
 
-		var keys = {
+		return {
 			'C#': [ key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp ],
 			'A#m': [ key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp ],
 			'G#Mix': [ key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp ],
@@ -164,7 +165,11 @@ var parseKeyVoice = {};
 			'G#': [ key1flat, key2flat, key3flat, key4flat ],
 			'Gbm': [ key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp ]
 		};
+	}
+	parseKeyVoice.getKeys = getKeys;//vr
 
+	parseKeyVoice.standardKey = function(keyName, root, acc, localTranspose) {
+		var keys = getKeys();//vr (content getKeys() moved from here);
 		return transpose.keySignature(multilineVars, keys, keyName, root, acc, localTranspose);
 	};
 

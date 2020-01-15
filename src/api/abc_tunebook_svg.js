@@ -215,10 +215,14 @@ var renderAbc = function(output, abc, parserParams, engraverParams, renderParams
 };
 
 function doLineWrapping(div, tune, tuneNumber, abcString, params) {
+  if (params.onBeforeLineWrapping)
+    params.onBeforeLineWrapping(div, tune, tuneNumber, abcString, params);//vr
 	var engraver_controller = new EngraverController(div, params);
 	var widths = engraver_controller.getMeasureWidths(tune);
 
 	var ret = wrap.calcLineWraps(tune, widths, abcString, params, Parse, engraver_controller);
+  ret.tune.lineBreaks = ret.lineBreaks;//vr
+  if (params.onBeforeRender) params.onBeforeRender(div, ret.tune, tuneNumber, abcString, params);//vr
     if (!params.oneSvgPerLine || ret.tune.lines.length < 2)
         renderOne(div, ret.tune, ret.revisedParams, tuneNumber);
     else
