@@ -38,7 +38,7 @@ var flatten;
 	var currentTrack;
 	var pitchesTied;
 	var lastNoteDurationPosition;
-	var currentTrackMilliseconds;
+	var currentTrackCounter;
 
 	var meter = { num: 4, den: 4 };
 	var chordTrack;
@@ -50,10 +50,13 @@ var flatten;
 	var lastChord;
 	var barBeat;
 	var gChordTacet = false;
-	var stressBeat1 = 64;
-	var stressBeatDown = 64;
-	var stressBeatUp = 64;
+	var doBeatAccents = true;
+	var stressBeat1 = 105;
+	var stressBeatDown = 95;
+	var stressBeatUp = 85;
 	var beatFraction = 0.25;
+	var nextVolume;
+	var nextVolumeDelta;
 
 	var drumTrack;
 	var drumTrackFinished;
@@ -75,7 +78,7 @@ var flatten;
 		currentInstrument = undefined;
 		// channel = undefined;
 		currentTrack = undefined;
-		currentTrackMilliseconds = undefined;
+		currentTrackCounter = undefined;
 		pitchesTied = {};
 
 		// For resolving chords.
@@ -88,22 +91,27 @@ var flatten;
 		barBeat = 0;
 		gChordTacet = options.chordsOff ? true : false;
 
-		stressBeat1 = 64;
-		stressBeatDown = 64;
-		stressBeatUp = 64;
+		doBeatAccents = true;
+		stressBeat1 = 105;
+		stressBeatDown = 95;
+		stressBeatUp = 85;
 		beatFraction = 0.25;
+		nextVolume = undefined;
+		nextVolumeDelta = undefined;
 
 		// For the drum/metronome track.
 		drumTrack = [];
 		drumTrackFinished = false;
 		drumDefinition = {};
 
+		zeroOutMilliseconds(voices);
+
 		for (var i = 0; i < voices.length; i++) {
 			transpose = 0;
 			lastNoteDurationPosition = -1;
 			var voice = voices[i];
 			currentTrack = [{ cmd: 'program', channel: i, instrument: instrument }];
-			currentTrackMilliseconds = 0;
+			currentTrackCounter = 0;
 			pitchesTied = {};
 			for (var j = 0; j < voice.length; j++) {
 				var element = voice[j];
@@ -146,7 +154,15 @@ var flatten;
 						if (instrument === undefined)
 							instrument = element.program;
 						currentInstrument = element.program;
-						currentTrack.push({ cmd: 'program', channel: i, instrument: element.program });
+						if (currentTrack.length > 0 && currentTrack[currentTrack.length-1].cmd === 'program')
+							currentTrack[currentTrack.length-1].instrument = element.program;
+						else {
+							var ii;
+							for (ii = currentTrack.length-1; ii >= 0 && currentTrack[ii].cmd !== 'program'; ii--)
+								;
+							if (ii < 0 || currentTrack[ii].instrument !== element.program)
+								currentTrack.push({cmd: 'program', channel: i, instrument: element.program});
+						}
 						break;
 					case "channel":
 					// 	if (channel === undefined)
@@ -165,6 +181,15 @@ var flatten;
 						stressBeatDown = element.beats[1];
 						stressBeatUp = element.beats[2];
 						// TODO-PER: also use the last parameter - which changes which beats are strong.
+						break;
+					case "vol":
+						nextVolume = element.volume;
+						break;
+					case "volinc":
+						nextVolumeDelta = element.volume;
+						break;
+					case "beataccents":
+						doBeatAccents = element.value;
 						break;
 					default:
 						// This should never happen
@@ -212,6 +237,16 @@ var flatten;
 
 		return { tempo: startingTempo, instrument: instrument, tracks: tracks, totalDuration: totalDuration(tracks) };
 	};
+
+	function zeroOutMilliseconds(voices) {
+		for (var i = 0; i < voices.length; i++) {
+			var voice = voices[i];
+			for (var j = 0; j < voice.length; j++) {
+				var element = voice[j];
+				delete element.currentTrackMilliseconds;
+			}
+		}
+	}
 
 	function totalDuration(tracks) {
 		var total = 0;
@@ -302,12 +337,27 @@ var flatten;
 		//
 
 		var volume;
-		if (barBeat === 0)
-			volume = stressBeat1;
-		else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
+		if (nextVolume) {
+			volume = nextVolume;
+			nextVolume = undefined;
+		} else if (!doBeatAccents) {
 			volume = stressBeatDown;
-		else
-			volume = stressBeatUp;
+		} else {
+			if (barBeat === 0)
+				volume = stressBeat1;
+			else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
+				volume = stressBeatDown;
+			else
+				volume = stressBeatUp;
+		}
+		if (nextVolumeDelta) {
+			volume += nextVolumeDelta;
+			nextVolumeDelta = undefined;
+		}
+		if (volume < 0)
+			volume = 0;
+		if (volume > 127)
+			volume = 127;
 		var velocity = voiceOff ? 0 : volume;
 		var chord = findChord(elem);
 		if (chord) {
@@ -353,7 +403,12 @@ var flatten;
 			}
 		}
 
-		elem.currentTrackMilliseconds = currentTrackMilliseconds;
+		// The currentTrackCounter is the number of whole notes from the beginning of the piece.
+		// The beat fraction is the note that gets a beat (.25 is a quarter note)
+		// The tempo is in minutes and we want to get to milliseconds.
+		if (!elem.currentTrackMilliseconds)
+			elem.currentTrackMilliseconds = [];
+		elem.currentTrackMilliseconds.push(currentTrackCounter / beatFraction / startingTempo * 60*1000);
 		if (elem.pitches) {
 			if (graces && bagpipes) {
 				// If it is bagpipes, then the graces are played with the note. If the grace has the same pitch as the note, then we just skip it.
@@ -372,7 +427,7 @@ var flatten;
 				else {
 					// but we do add the duration to what we call back.
 					for (var last = currentTrack.length-1; last >= 0; last--) {
-						if (currentTrack[last].cmd === 'start' && currentTrack[last].pitch === actualPitch) {
+						if (currentTrack[last].cmd === 'start' && currentTrack[last].pitch === actualPitch && currentTrack[last].elem) {
 							var pitchArray = currentTrack[last].elem.midiPitches;
 							for (var last2 = 0; last2 < pitchArray.length; last2++) {
 								if (pitchArray[last2].pitch-60 === actualPitch) { // TODO-PER: the 60 is to compensate for the midi pitch numbers again.
@@ -405,17 +460,17 @@ var flatten;
 			}
 			currentTrack.push({ cmd: 'move', duration: soundDuration*tempoChangeFactor });
 			lastNoteDurationPosition = currentTrack.length-1;
-			currentTrackMilliseconds += soundDuration*tempoChangeFactor;
+			currentTrackCounter += soundDuration*tempoChangeFactor;
 
 			for (var ii = 0; ii < pitches.length; ii++) {
 				if (!pitchesTied[''+pitches[ii].pitch])
 					currentTrack.push({ cmd: 'stop', pitch: pitches[ii].pitch });
 			}
 			currentTrack.push({ cmd: 'move', duration: thisBreakBetweenNotes*tempoChangeFactor });
-			currentTrackMilliseconds += thisBreakBetweenNotes*tempoChangeFactor;
+			currentTrackCounter += thisBreakBetweenNotes*tempoChangeFactor;
 		} else if (elem.rest) {
 			currentTrack.push({ cmd: 'move', duration: duration*tempoChangeFactor });
-			currentTrackMilliseconds += duration*tempoChangeFactor;
+			currentTrackCounter += duration*tempoChangeFactor;
 		}
 
 		if (elem.endTriplet) {
@@ -490,12 +545,12 @@ var flatten;
 
 	function writeGraceNotes(graces, stealFromCurrent, duration, skipNote, velocity) {
 		for (var g = 0; g < graces.length; g++) {
-			var gp = adjustPitch(graces[g]);
+			var gp = graces[g];
 			if (gp !== skipNote)
-				currentTrack.push({cmd: 'start', pitch: gp, volume: velocity});
+				currentTrack.push({cmd: 'start', pitch: gp.pitch, volume: velocity});
 			currentTrack.push({cmd: 'move', duration: graces[g].duration*tempoChangeFactor });
 			if (gp !== skipNote)
-				currentTrack.push({cmd: 'stop', pitch: gp});
+				currentTrack.push({cmd: 'stop', pitch: gp.pitch});
 			if (!stealFromCurrent)
 				currentTrack[lastNoteDurationPosition].duration -= graces[g].duration;
 			duration -= graces[g].duration;

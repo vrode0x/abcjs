@@ -51,6 +51,8 @@ function CreateSynth() {
 		else
 			return Promise.reject(new Error("Must pass in either a visualObj or a sequence"));
 		self.sequenceCallback = params.sequenceCallback;
+		self.callbackContext = params.callbackContext;
+		self.onEnded = options.onEnded;
 
 		var allNotes = {};
 		var currentInstrument = instrumentIndexToName[0];
@@ -58,8 +60,8 @@ function CreateSynth() {
 			track.forEach(function(event) {
 				if (event.cmd === "program" && instrumentIndexToName[event.instrument])
 					currentInstrument = instrumentIndexToName[event.instrument];
-				var pitchNumber = event.pitch + 60;
 				if (event.pitch !== undefined) {
+					var pitchNumber = event.pitch + 60;
 					var noteName = pitchToNoteName[pitchNumber];
 					if (noteName) {
 						if (!allNotes[currentInstrument])
@@ -136,7 +138,7 @@ function CreateSynth() {
 
 			var noteMapTracks = createNoteMap(self.flattened);
 			if (self.sequenceCallback)
-				self.sequenceCallback(noteMapTracks);
+				self.sequenceCallback(noteMapTracks, self.callbackContext);
 			//console.log(noteMapTracks);
 
 			self.audioBuffers = [];
@@ -267,6 +269,11 @@ function CreateSynth() {
 		self.directSource.forEach(function(source) {
 			source.start(0, seconds);
 		});
+		if (self.onEnded) {
+			self.directSource[0].onended = function () {
+				self.onEnded(self.callbackContext);
+			};
+		}
 	};
 
 	self._placeNote = function(chanData, note, tempoMultiplier, soundsCache) {
