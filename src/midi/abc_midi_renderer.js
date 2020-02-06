@@ -15,6 +15,7 @@
 //    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 var rendererFactory;
+var vrUtils = require('../vrode/vrutils');//vr
 
 (function() {
 	"use strict";
@@ -49,12 +50,16 @@ var rendererFactory;
 			//00 FF 5902 03 00 - key signature
 			//00 FF 5804 04 02 30 08 - time signature
 			if (name) {
+				name = vrUtils.encodeUTF8(name); //vr
+				this.track += "%00%FF%03" + toHex(name.length, 2);//vr
+				for (var i = 0; i < name.length; i++)//vr
+					this.track += toHex(name.charCodeAt(i), 2); //vr
 				// If there are multi-byte chars, we don't know how long the string will be until we create it.
-				var nameArray = "";
-				for (var i = 0; i < name.length; i++)
-					nameArray += toHex(name.charCodeAt(i), 2);
-				this.track += "%00%FF%03" + toHex(nameArray.length/3, 2); // Each byte is represented by three chars "%XX", so divide by 3 to get the length.
-				this.track += nameArray;
+				//vr var nameArray = "";
+				//vr for (var i = 0; i < name.length; i++)
+				//vr 	nameArray += toHex(name.charCodeAt(i), 2);
+				//vr this.track += "%00%FF%03" + toHex(nameArray.length/3, 2); // Each byte is represented by three chars "%XX", so divide by 3 to get the length.
+				//vr this.track += nameArray;
 			}
 			this.endTrack();
 		}

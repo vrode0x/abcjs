@@ -635,10 +635,12 @@ function calcLineWraps(tune, widths, abcString, params, Parse, engraver_controll
 		lineBreaks = ff.lineBreaks;
 
 		// We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
+		if (params.optimizeFreeFormLineBreaks) {//vr ()on some files[ChildInTime.kar] suspended
 		ff = optimizeLineWidths(widths, lineBreakPoint, lineBreaks, explanation);
 		explanation.attempts.push({ type: "Optimize", failed: ff.failed, reason: ff.reason, lineBreaks: ff.lineBreaks, totals: ff.totals });
 		if (!ff.failed)
 			lineBreaks = ff.lineBreaks;
+		}//vr
 	}
 
 	// If the vertical space exceeds targetHeight, remove a line and try again. If that is too crowded, then don't use it.
