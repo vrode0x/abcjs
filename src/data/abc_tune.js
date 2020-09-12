@@ -1109,7 +1109,7 @@ var Tune = function() {
 				if (element.elemset[i] !== null)
 					es.push(element.elemset[i]);
 			}
-			var isTiedToNext = element.startTie;
+			var isTiedToNext; //vr = element.startTie;
 			if (isTiedState !== undefined) {
 				eventHash["event" + isTiedState].elements.push(es); // Add the tied note to the first note that it is tied to
 				if (nextIsBar) {
@@ -1253,6 +1253,7 @@ var Tune = function() {
 					timeDivider = beatLength * beatsPerSecond;
 				}
 				var ret = this.addElementToEvents(eventHash, element, voiceTimeMilliseconds, elements[elem].top, elements[elem].height, elements[elem].line, elements[elem].measureNumber, timeDivider, isTiedState, nextIsBar);
+				if (this.timing128) element.abcelem.milliseconds128 = voiceTimeMilliseconds;//vr
 				isTiedState = ret.isTiedState;
 				nextIsBar = ret.nextIsBar;
 				voiceTime += ret.duration;
