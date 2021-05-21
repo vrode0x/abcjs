@@ -29,7 +29,7 @@ var ParseHeader = function(tokenizer, warn, multilineVars, tune) {
 	this.reset(tokenizer, warn, multilineVars, tune);
 
 	this.setTitle = function(title) {
-		title = decodeURIComponent(title);//vrUtils.encodeUTF8(title); //vr
+		//vr title = decodeURIComponent(title);//vrUtils.encodeUTF8(title); //vr
 		if (multilineVars.hasMainTitle)
 			tune.addSubtitle(tokenizer.translateString(tokenizer.stripComment(title)));	// display secondary title
 		else

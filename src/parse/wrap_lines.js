@@ -29,6 +29,8 @@ function wrapLines(tune, lineBreaks) {
 	var measureNumber = [];
 	var measureMarker = [];
 	var lastMeter = '';
+	var voiceStart = {};
+	var linesWithoutStaff = 0;
 
 	for (var i = 0; i < tune.lines.length; i++) {
 		var line = tune.lines[i];
@@ -50,6 +52,7 @@ function wrapLines(tune, lineBreaks) {
 						measureNumber[j][k] = 0;
 						measureMarker[j][k] = 0;
 					}
+					if (linesWithoutStaff > 0) currentLine[j][k] += linesWithoutStaff;
 					var voice = voices[k];
 					for (var e = 0; e < voice.length; e++) {
 						if (startNewLine[j][k]) {
@@ -75,9 +78,20 @@ function wrapLines(tune, lineBreaks) {
 							startNewLine[j][k] = false;
 						}
 						var element = voice[e];
-						if (!newLines[currentLine[j][k]].staff[j].voices[k])
+						if (!newLines[currentLine[j][k]].staff[j].voices[k]) {
 							newLines[currentLine[j][k]].staff[j].voices[k] = [];
+							for (var startItem in voiceStart) {
+								if (voiceStart.hasOwnProperty(startItem)) {
+									newLines[currentLine[j][k]].staff[j].voices[k].push(voiceStart[startItem])
+								}
+							}
+						}
 						newLines[currentLine[j][k]].staff[j].voices[k].push(element);
+						if (element.el_type === 'stem') {
+							// This is a nice trick to just pay attention to the last setting of each type.
+							voiceStart[element.el_type] = element;
+						}
+
 						if (element.el_type === 'bar') {
 							measureNumber[j][k]++;
 							if (lineBreaks[measureNumber[j][k]]) {
@@ -91,9 +105,10 @@ function wrapLines(tune, lineBreaks) {
 
 				}
 			}
+			linesWithoutStaff = 0;
 		} else {
 			newLines.push(line);
-			currentLine++;
+			linesWithoutStaff++;
 		}
 	}
 	tune.lines = newLines;
