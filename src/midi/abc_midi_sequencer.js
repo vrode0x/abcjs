@@ -29,7 +29,7 @@ var sequence;
 	sequence = function(abctune, options) {
 		// Global options
 		options = options || {};
-		var qpm = undefined;
+		var qpm = 180;	// The tempo if there isn't a tempo specified.
 		var program = options.program || 0;	// The program if there isn't a program specified.
 		var transpose = options.midiTranspose || 0;
 		var channel = options.channel || 0;
@@ -69,16 +69,13 @@ var sequence;
 
 		//%%MIDI beat ⟨int1⟩ ⟨int2⟩ ⟨int3⟩ ⟨int4⟩: controls the volumes of the notes in a measure. The first note in a bar has volume ⟨int1⟩; other ‘strong’ notes have volume ⟨int2⟩ and all the rest have volume ⟨int3⟩. These values must be in the range 0–127. The parameter ⟨int4⟩ determines which notes are ‘strong’. If the time signature is x/y, then each note is given a position number k = 0, 1, 2. . . x-1 within each bar. If k is a multiple of ⟨int4⟩, then the note is ‘strong’.
 
-		var startingMidi = [];
 		if (abctune.formatting.midi) {
 			//console.log("MIDI Formatting:", abctune.formatting.midi);
 			var globals = abctune.formatting.midi;
-			if (globals.program && globals.program.length > 0) {
+			if (globals.program) {
 				program = globals.program[0];
-				if (globals.program.length > 1) {
-					program = globals.program[1];
-					channel = globals.program[0];
-				}
+				if (globals.program.length > 1)
+					channel = globals.program[1];
 			}
 			if (globals.transpose)
 				transpose = globals.transpose[0];
@@ -92,27 +89,15 @@ var sequence;
 				drumOn = true;
 			if (channel === 10)
 				program = PERCUSSION_PROGRAM;
-			if (globals.beat)
-				startingMidi.push({ el_type: 'beat', beats: globals.beat })
-			if (globals.nobeataccents)
-				startingMidi.push({ el_type: 'beataccents', value: false });
-
 		}
 
 		// Specified options in abc string.
 
-		// If the tempo was passed in, use that.
-		// If the tempo is specified, use that.
-		// If there is a default, use that.
-		// Otherwise, use the default.
+		// If the tempo was passed in, use that. If the tempo is specified, use that. Otherwise, use the default.
+		if (abctune.metaText.tempo)
+			qpm = interpretTempo(abctune.metaText.tempo);
 		if (options.qpm)
 			qpm = parseInt(options.qpm, 10);
-		else if (abctune.metaText.tempo)
-			qpm = interpretTempo(abctune.metaText.tempo);
-		else if (options.defaultQpm)
-			qpm = options.defaultQpm;
-		else
-			qpm = 180; 	// The tempo if there isn't a tempo specified.
 
 		var startVoice = [];
 		if (bagpipes)
@@ -123,8 +108,6 @@ var sequence;
 		if (transpose)
 			startVoice.push({ el_type: 'transpose', transpose: transpose });
 		startVoice.push({ el_type: 'tempo', qpm: qpm });
-		for (var ss = 0; ss < startingMidi.length;ss++)
-			startVoice.push(startingMidi[ss]);
 
 		// the relevant part of the input structure is:
 		// abctune
@@ -191,24 +174,6 @@ var sequence;
 								case "note":
 									// regular items are just pushed.
 									if (!elem.rest || elem.rest.type !== 'spacer') {
-										if (elem.decoration) {
-											if (elem.decoration.indexOf('ppp') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [30, 20, 10, 1] });
-											else if (elem.decoration.indexOf('pp') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [45, 35, 20, 1] });
-											else if (elem.decoration.indexOf('p') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [60, 50, 35, 1] });
-											else if (elem.decoration.indexOf('mp') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [75, 65, 50, 1] });
-											else if (elem.decoration.indexOf('mf') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [90, 80, 65, 1] });
-											else if (elem.decoration.indexOf('f') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [105, 95, 80, 1] });
-											else if (elem.decoration.indexOf('ff') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [120, 110, 95, 1] });
-											else if (elem.decoration.indexOf('fff') >= 0)
-												voices[voiceNumber].push({ el_type: 'beat', beats: [127, 125, 110, 1] });
-										}
 										voices[voiceNumber].push(elem);
 										noteEventsInBar++;
 									}
@@ -289,18 +254,6 @@ var sequence;
 											break;
 										case "beat":
 											voices[voiceNumber].push({ el_type: 'beat', beats: elem.params });
-											break;
-										case "nobeataccents":
-											voices[voiceNumber].push({ el_type: 'beataccents', value: false });
-											break;
-										case "beataccents":
-											voices[voiceNumber].push({ el_type: 'beataccents', value: true });
-											break;
-										case "vol":
-											voices[voiceNumber].push({ el_type: 'vol', volume: elem.params[0] });
-											break;
-										case "volinc":
-											voices[voiceNumber].push({ el_type: 'volinc', volume: elem.params[0] });
 											break;
 										default:
 											console.log("MIDI seq: midi cmd not handled: ", elem.cmd, elem);

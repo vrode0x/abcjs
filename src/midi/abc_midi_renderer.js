@@ -53,10 +53,9 @@ var vrUtils = require('../vrode/vrutils');//vr
 				name = vrUtils.encodeUTF8(name); //vr
 				this.track += "%00%FF%03" + toHex(name.length, 2);//vr
 				for (var i = 0; i < name.length; i++)//vr
-					this.track += toHex(name.charCodeAt(i), 2); //vr
-				// If there are multi-byte chars, we don't know how long the string will be until we create it.
-				//vr var nameArray = "";
-				//vr for (var i = 0; i < name.length; i++)
+					this.track += toHex(name.charCodeAt(i), 2); //vr				// If there are multi-byte chars, we don't know how long the string will be until we create it.
+				//vr var nameArray = "";				//vr for (var i = 0; i < name.length; i++)
+				//vr 	this.track += toHex(name.charCodeAt(i), 2);
 				//vr 	nameArray += toHex(name.charCodeAt(i), 2);
 				//vr this.track += "%00%FF%03" + toHex(nameArray.length/3, 2); // Each byte is represented by three chars "%XX", so divide by 3 to get the length.
 				//vr this.track += nameArray;

@@ -1,4 +1,4 @@
-//    abc_midi_flattener.js: Turn a linear series of events into a series of MIDI commands.
+//    abc_midi_create.js: Turn a linear series of events into a series of MIDI commands.
 //    Copyright (C) 2010-2018 Gregory Dyke (gregdyke at gmail dot com) and Paul Rosen
 //
 //    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -33,12 +33,10 @@ var flatten;
 	var startingMeter;
 	var tempoChangeFactor = 1;
 	var instrument;
-	var currentInstrument;
 	// var channel;
 	var currentTrack;
 	var pitchesTied;
 	var lastNoteDurationPosition;
-	var currentTrackCounter;
 
 	var meter = { num: 4, den: 4 };
 	var chordTrack;
@@ -50,13 +48,10 @@ var flatten;
 	var lastChord;
 	var barBeat;
 	var gChordTacet = false;
-	var doBeatAccents = true;
-	var stressBeat1 = 105;
-	var stressBeatDown = 95;
-	var stressBeatUp = 85;
+	var stressBeat1 = 64;
+	var stressBeatDown = 64;
+	var stressBeatUp = 64;
 	var beatFraction = 0.25;
-	var nextVolume;
-	var nextVolumeDelta;
 
 	var drumTrack;
 	var drumTrackFinished;
@@ -75,10 +70,8 @@ var flatten;
 		startingMeter = undefined;
 		tempoChangeFactor = 1;
 		instrument = undefined;
-		currentInstrument = undefined;
 		// channel = undefined;
 		currentTrack = undefined;
-		currentTrackCounter = undefined;
 		pitchesTied = {};
 
 		// For resolving chords.
@@ -91,27 +84,21 @@ var flatten;
 		barBeat = 0;
 		gChordTacet = options.chordsOff ? true : false;
 
-		doBeatAccents = true;
-		stressBeat1 = 105;
-		stressBeatDown = 95;
-		stressBeatUp = 85;
+		stressBeat1 = 64;
+		stressBeatDown = 64;
+		stressBeatUp = 64;
 		beatFraction = 0.25;
-		nextVolume = undefined;
-		nextVolumeDelta = undefined;
 
 		// For the drum/metronome track.
 		drumTrack = [];
 		drumTrackFinished = false;
 		drumDefinition = {};
 
-		zeroOutMilliseconds(voices);
-
 		for (var i = 0; i < voices.length; i++) {
 			transpose = 0;
 			lastNoteDurationPosition = -1;
 			var voice = voices[i];
-			currentTrack = [{ cmd: 'program', channel: i, instrument: instrument }];
-			currentTrackCounter = 0;
+			currentTrack = [{ cmd: 'program', channel: i, instrument: instrument ? instrument : 0 }];
 			pitchesTied = {};
 			for (var j = 0; j < voice.length; j++) {
 				var element = voice[j];
@@ -153,16 +140,7 @@ var flatten;
 					case "instrument":
 						if (instrument === undefined)
 							instrument = element.program;
-						currentInstrument = element.program;
-						if (currentTrack.length > 0 && currentTrack[currentTrack.length-1].cmd === 'program')
-							currentTrack[currentTrack.length-1].instrument = element.program;
-						else {
-							var ii;
-							for (ii = currentTrack.length-1; ii >= 0 && currentTrack[ii].cmd !== 'program'; ii--)
-								;
-							if (ii < 0 || currentTrack[ii].instrument !== element.program)
-								currentTrack.push({cmd: 'program', channel: i, instrument: element.program});
-						}
+						currentTrack[0].instrument = element.program;
 						break;
 					case "channel":
 					// 	if (channel === undefined)
@@ -182,23 +160,12 @@ var flatten;
 						stressBeatUp = element.beats[2];
 						// TODO-PER: also use the last parameter - which changes which beats are strong.
 						break;
-					case "vol":
-						nextVolume = element.volume;
-						break;
-					case "volinc":
-						nextVolumeDelta = element.volume;
-						break;
-					case "beataccents":
-						doBeatAccents = element.value;
-						break;
 					default:
 						// This should never happen
 						console.log("MIDI creation. Unknown el_type: " + element.el_type + "\n");// jshint ignore:line
 						break;
 				}
 			}
-			if (currentTrack[0].instrument === undefined)
-				currentTrack[0].instrument = instrument ? instrument : 0;
 			tracks.push(currentTrack);
 			if (chordTrack.length > 0) // Don't do chords on more than one track, so turn off chord detection after we create it.
 				chordTrackFinished = true;
@@ -235,33 +202,8 @@ var flatten;
 		// 		startingTempo /= 4;
 		// }
 
-		return { tempo: startingTempo, instrument: instrument, tracks: tracks, totalDuration: totalDuration(tracks) };
+		return { tempo: startingTempo, instrument: instrument, tracks: tracks };
 	};
-
-	function zeroOutMilliseconds(voices) {
-		for (var i = 0; i < voices.length; i++) {
-			var voice = voices[i];
-			for (var j = 0; j < voice.length; j++) {
-				var element = voice[j];
-				delete element.currentTrackMilliseconds;
-			}
-		}
-	}
-
-	function totalDuration(tracks) {
-		var total = 0;
-		for (var i = 0; i < tracks.length; i++) {
-			var track = tracks[i];
-			var trackTotal = 0;
-			for (var j = 0; j < track.length; j++) {
-				var event = track[j];
-				if (event.duration)
-					trackTotal += event.duration;
-			}
-			total = Math.max(total, trackTotal);
-		}
-		return total;
-	}
 
 	function getBeatFraction(meter) {
 		switch (meter.den) {
@@ -337,27 +279,12 @@ var flatten;
 		//
 
 		var volume;
-		if (nextVolume) {
-			volume = nextVolume;
-			nextVolume = undefined;
-		} else if (!doBeatAccents) {
+		if (barBeat === 0)
+			volume = stressBeat1;
+		else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
 			volume = stressBeatDown;
-		} else {
-			if (barBeat === 0)
-				volume = stressBeat1;
-			else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
-				volume = stressBeatDown;
-			else
-				volume = stressBeatUp;
-		}
-		if (nextVolumeDelta) {
-			volume += nextVolumeDelta;
-			nextVolumeDelta = undefined;
-		}
-		if (volume < 0)
-			volume = 0;
-		if (volume > 127)
-			volume = 127;
+		else
+			volume = stressBeatUp;
 		var velocity = voiceOff ? 0 : volume;
 		var chord = findChord(elem);
 		if (chord) {
@@ -403,54 +330,24 @@ var flatten;
 			}
 		}
 
-		// The currentTrackCounter is the number of whole notes from the beginning of the piece.
-		// The beat fraction is the note that gets a beat (.25 is a quarter note)
-		// The tempo is in minutes and we want to get to milliseconds.
-		if (!elem.currentTrackMilliseconds)
-			elem.currentTrackMilliseconds = [];
-		elem.currentTrackMilliseconds.push(currentTrackCounter / beatFraction / startingTempo * 60*1000);
 		if (elem.pitches) {
 			if (graces && bagpipes) {
 				// If it is bagpipes, then the graces are played with the note. If the grace has the same pitch as the note, then we just skip it.
 				duration = writeGraceNotes(graces, true, duration, null, velocity);
 			}
 			var pitches = [];
-			elem.midiPitches = [];
 			for (var i=0; i<elem.pitches.length; i++) {
 				var note = elem.pitches[i];
 				var actualPitch = adjustPitch(note);
 				pitches.push({ pitch: actualPitch, startTie: note.startTie });
-				elem.midiPitches.push({ pitch: actualPitch+60, durationInMeasures: duration*tempoChangeFactor, volume: volume, instrument: currentInstrument }); // TODO-PER: why is the internal numbering system offset by 60 from midi? It should probably be the same as midi.
 
 				if (!pitchesTied[''+actualPitch])	// If this is the second note of a tie, we don't start it again.
 					currentTrack.push({ cmd: 'start', pitch: actualPitch, volume: velocity });
-				else {
-					// but we do add the duration to what we call back.
-					for (var last = currentTrack.length-1; last >= 0; last--) {
-						if (currentTrack[last].cmd === 'start' && currentTrack[last].pitch === actualPitch && currentTrack[last].elem) {
-							var pitchArray = currentTrack[last].elem.midiPitches;
-							for (var last2 = 0; last2 < pitchArray.length; last2++) {
-								if (pitchArray[last2].pitch-60 === actualPitch) { // TODO-PER: the 60 is to compensate for the midi pitch numbers again.
-									pitchArray[last2].durationInMeasures += duration * tempoChangeFactor;
-								}
-							}
-							break;
-						}
-					}
-				}
 
-				if (note.startTie) {
-					pitchesTied['' + actualPitch] = true;
-					currentTrack[currentTrack.length-1].elem = elem;
-				} else if (note.endTie)
+				if (note.startTie)
+					pitchesTied[''+actualPitch] = true;
+				else if (note.endTie)
 					pitchesTied[''+actualPitch] = false;
-			}
-			if (elem.gracenotes) {
-				for (var j = 0; j < elem.gracenotes.length; j++) {
-					elem.midiGraceNotePitches = [];
-					var grace = elem.gracenotes[j];
-					elem.midiGraceNotePitches.push({ pitch: adjustPitch(grace)+60, durationInMeasures: 0, volume: volume, instrument: currentInstrument});
-				}
 			}
 			var thisBreakBetweenNotes = normalBreakBetweenNotes;
 			var soundDuration = duration-normalBreakBetweenNotes;
@@ -460,17 +357,14 @@ var flatten;
 			}
 			currentTrack.push({ cmd: 'move', duration: soundDuration*tempoChangeFactor });
 			lastNoteDurationPosition = currentTrack.length-1;
-			currentTrackCounter += soundDuration*tempoChangeFactor;
 
 			for (var ii = 0; ii < pitches.length; ii++) {
 				if (!pitchesTied[''+pitches[ii].pitch])
 					currentTrack.push({ cmd: 'stop', pitch: pitches[ii].pitch });
 			}
 			currentTrack.push({ cmd: 'move', duration: thisBreakBetweenNotes*tempoChangeFactor });
-			currentTrackCounter += thisBreakBetweenNotes*tempoChangeFactor;
 		} else if (elem.rest) {
 			currentTrack.push({ cmd: 'move', duration: duration*tempoChangeFactor });
-			currentTrackCounter += duration*tempoChangeFactor;
 		}
 
 		if (elem.endTriplet) {
@@ -545,12 +439,12 @@ var flatten;
 
 	function writeGraceNotes(graces, stealFromCurrent, duration, skipNote, velocity) {
 		for (var g = 0; g < graces.length; g++) {
-			var gp = graces[g];
+			var gp = adjustPitch(graces[g]);
 			if (gp !== skipNote)
-				currentTrack.push({cmd: 'start', pitch: gp.pitch, volume: velocity});
+				currentTrack.push({cmd: 'start', pitch: gp, volume: velocity});
 			currentTrack.push({cmd: 'move', duration: graces[g].duration*tempoChangeFactor });
 			if (gp !== skipNote)
-				currentTrack.push({cmd: 'stop', pitch: gp.pitch});
+				currentTrack.push({cmd: 'stop', pitch: gp});
 			if (!stealFromCurrent)
 				currentTrack[lastNoteDurationPosition].duration -= graces[g].duration;
 			duration -= graces[g].duration;
@@ -615,11 +509,9 @@ var flatten;
 		var arr = remaining.split('/');
 		chick = chordNotes(bass, arr[0]);
 		if (arr.length === 2) {
-			var explicitBass = basses[arr[1].substring(0,1)];
+			var explicitBass = basses[arr[1]];
 			if (explicitBass) {
-				var bassAcc = arr[1].substring(1);
-				var bassShift = {'#': 1, '♯': 1, 'b': -1, '♭': -1}[bassAcc] || 0;
-				bass = basses[arr[1].substring(0,1)] + bassShift + transpose;
+				bass = basses[arr[1]] + transpose;
 				bass2 = bass;
 			}
 		}
