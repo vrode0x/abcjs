@@ -26,76 +26,11 @@ var create;
 
 	var baseDuration = 480*4; // nice and divisible, equals 1 whole note
 
-	//vr >>>
-	function mergeVoices(tracks) {
-		if (tracks.length === 0) return [];
-		if (tracks.length === 1) return tracks[0];
-		var res = [], arr = [];
-
-		var start, cmd;
-		for (var i = 0; i < tracks.length; i++) {
-			start = 0;
-			for (var n = 0; n < tracks[i].length; n++) {
-				cmd = tracks[i][n];
-				if (cmd.pitch) {
-					cmd.start = start;
-					arr.push(cmd);
-				}
-				else if (cmd.duration)
-					start += cmd.duration * 1000;
-			}
-		}
-
-		arr.sort(function (e1, e2) {
-			return e1.start - e2.start;
-	 	});
-
-		res.push(tracks[0][0]);//program
-		var lastStart = 0;
-		for (i = 0; i < arr.length; i++) {
-			cmd = arr[i];
-			if (cmd.start > lastStart) {
-				res.push({cmd: 'move', duration: (cmd.start - lastStart) / 1000});
-				lastStart = cmd.start;
-			}
-			res.push(cmd);
-		}
-
-		return res;
-	}
-
-	function tryMergeVoices(abcTune, tracks) {
-		var res = [], voices = [], iTrack = 0, i, n;
-
-    if (abcTune.lines.length > 0) {
-      var staffs = abcTune.lines[0].staff;
-      if ((staffs) && (staffs.length > 0))
-				for (i = 0; i < staffs.length; i++) {
-					for (n = 0; n < staffs[i].voices.length; n++) {
-						if (iTrack < tracks.length) {
-							voices.push(tracks[iTrack]);
-							iTrack++;
-						}
-						else break;
-					}
-					res.push(mergeVoices(voices));
-					voices = [];
-					if (iTrack >= tracks.length) break;
-				}
-    }
-
-		for (i = iTrack; i < tracks.length; i++) {
-			res.push(tracks[i]);
-		}
-		return res;
-	}
-	//vr >>>
-
 	create = function(abcTune, options) {
 		if (options === undefined) options = {};
 		var sequenceInst = sequence(abcTune, options);
 		var commands = flatten(sequenceInst, options);
-		if (options.mergeVoices) commands.tracks = tryMergeVoices(abcTune, commands.tracks);//vr
+		if (options.onCreateMidiCommands) options.onCreateMidiCommands(abcTune, commands);//vr
 		var midi = rendererFactory();
 		var midiJs = new Preparer();
 

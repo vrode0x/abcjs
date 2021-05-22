@@ -99,6 +99,12 @@ var animation = __webpack_require__(/*! ./src/api/abc_animation */ "./src/api/ab
 
 var tuneBook = __webpack_require__(/*! ./src/api/abc_tunebook */ "./src/api/abc_tunebook.js");
 
+var midiCreate = __webpack_require__(/*! ./src/midi/abc_midi_create */ "./src/midi/abc_midi_create.js"); //vr
+
+
+var Parse = __webpack_require__(/*! ./src/parse/abc_parse */ "./src/parse/abc_parse.js"); //vr
+
+
 var abcjs = {};
 abcjs.signature = "abcjs-basic v" + version;
 Object.keys(animation).forEach(function (key) {
@@ -146,6 +152,16 @@ abcjs.synth = {
 var editor = __webpack_require__(/*! ./src/edit/abc_editor */ "./src/edit/abc_editor.js");
 
 abcjs['Editor'] = editor;
+abcjs['midiCreate'] = midiCreate; //vr
+
+abcjs['Parse'] = Parse; //vr
+
+abcjs['Transpose'] = __webpack_require__(/*! ./src/parse/abc_transpose */ "./src/parse/abc_transpose.js"); //vr
+
+abcjs['spacing'] = __webpack_require__(/*! ./src/write/abc_spacing */ "./src/write/abc_spacing.js"); //vr
+
+abcjs['parseKeyVoice'] = __webpack_require__(/*! ./src/parse/abc_parse_key_voice */ "./src/parse/abc_parse_key_voice.js"); //vr
+
 module.exports = abcjs;
 
 /***/ }),
@@ -1057,8 +1073,13 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
     if (!removeDiv && params.wrap && params.staffwidth) {
       tune = doLineWrapping(div, tune, tuneNumber, abcString, params);
       return tune;
-    } else if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, params, tuneNumber);else renderEachLineSeparately(div, tune, params, tuneNumber);
+    }
 
+    if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params); //vr
+
+    /*//vr else*/
+
+    if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, params, tuneNumber);else renderEachLineSeparately(div, tune, params, tuneNumber);
     if (removeDiv) div.parentNode.removeChild(div);
     return null;
   }
@@ -1067,9 +1088,15 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
 };
 
 function doLineWrapping(div, tune, tuneNumber, abcString, params) {
+  if (params.onBeforeLineWrapping) params.onBeforeLineWrapping(div, tune, tuneNumber, abcString, params); //vr
+
   var engraver_controller = new EngraverController(div, params);
   var widths = engraver_controller.getMeasureWidths(tune);
   var ret = wrap.calcLineWraps(tune, widths, abcString, params, Parse, engraver_controller);
+  ret.tune.lineBreaks = ret.lineBreaks; //vr
+
+  if (params.onBeforeRender) params.onBeforeRender(div, ret.tune, tuneNumber, abcString, params); //vr
+
   if (!params.oneSvgPerLine || ret.tune.lines.length < 2) renderOne(div, ret.tune, ret.revisedParams, tuneNumber);else renderEachLineSeparately(div, ret.tune, ret.revisedParams, tuneNumber);
   ret.tune.explanation = ret.explanation;
   return ret.tune;
@@ -2327,7 +2354,7 @@ var Tune = function Tune() {
         if (element.elemset[i] !== null) es.push(element.elemset[i]);
       }
 
-      var isTiedToNext = element.startTie;
+      var isTiedToNext; //vr = element.startTie;
 
       if (isTiedState !== undefined) {
         eventHash["event" + isTiedState].elements.push(es); // Add the tied note to the first note that it is tied to
@@ -2411,9 +2438,14 @@ var Tune = function Tune() {
       }
     }
 
+    if (this.timing128) realDuration = realDuration * 128; //vr
+    else realDuration = realDuration / timeDivider; //vr
+
     return {
       isTiedState: isTiedState,
-      duration: realDuration / timeDivider,
+      duration: realDuration
+      /*//vr / timeDivider*/
+      ,
       nextIsBar: nextIsBar || element.type === 'bar'
     };
   };
@@ -2469,7 +2501,8 @@ var Tune = function Tune() {
 
     for (var v = 0; v < voices.length; v++) {
       var voiceTime = time;
-      var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+      if (this.timing128) var voiceTimeMilliseconds = voiceTime;else //vr
+        var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
       var startingRepeatElem = 0;
       var endingRepeatElem = -1;
       var elements = voices[v];
@@ -2485,10 +2518,13 @@ var Tune = function Tune() {
         }
 
         var ret = this.addElementToEvents(eventHash, element, voiceTimeMilliseconds, elements[elem].top, elements[elem].height, elements[elem].line, elements[elem].measureNumber, timeDivider, isTiedState, nextIsBar);
+        if (this.timing128) element.abcelem.milliseconds128 = voiceTimeMilliseconds; //vr
+
         isTiedState = ret.isTiedState;
         nextIsBar = ret.nextIsBar;
         voiceTime += ret.duration;
-        voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+        if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
+          voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 
         if (element.type === 'bar') {
           var barType = element.abcelem.type;
@@ -2505,7 +2541,8 @@ var Tune = function Tune() {
               isTiedState = ret.isTiedState;
               nextIsBar = ret.nextIsBar;
               voiceTime += ret.duration;
-              voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+              if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
+                voiceTimeMilliseconds = Math.round(voiceTime * 1000);
             }
 
             nextIsBar = true;
@@ -3143,6 +3180,115 @@ module.exports = Editor;
 
 /***/ }),
 
+/***/ "./src/midi/abc_midi_create.js":
+/*!*************************************!*\
+  !*** ./src/midi/abc_midi_create.js ***!
+  \*************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+//    abc_midi_create.js: Turn a linear series of events into a midi file.
+//    Copyright (C) 2010-2018 Gregory Dyke (gregdyke at gmail dot com) and Paul Rosen
+//
+//    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+//    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+//    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+//    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+var flatten = __webpack_require__(/*! ./abc_midi_flattener */ "./src/midi/abc_midi_flattener.js");
+
+var Preparer = __webpack_require__(/*! ./abc_midi_js_preparer */ "./src/midi/abc_midi_js_preparer.js");
+
+var rendererFactory = __webpack_require__(/*! ./abc_midi_renderer */ "./src/midi/abc_midi_renderer.js");
+
+var sequence = __webpack_require__(/*! ./abc_midi_sequencer */ "./src/midi/abc_midi_sequencer.js");
+
+var create;
+
+(function () {
+  "use strict";
+
+  var baseDuration = 480 * 4; // nice and divisible, equals 1 whole note
+
+  create = function create(abcTune, options) {
+    if (options === undefined) options = {};
+    var sequenceInst = sequence(abcTune, options);
+    var commands = flatten(sequenceInst, options);
+    if (options.onCreateMidiCommands) options.onCreateMidiCommands(abcTune, commands); //vr
+
+    var midi = rendererFactory();
+    var midiJs = new Preparer();
+    var title = abcTune.metaText ? abcTune.metaText.title : undefined;
+    if (title && title.length > 128) title = title.substring(0, 124) + '...';
+    midi.setGlobalInfo(commands.tempo, title);
+    midiJs.setGlobalInfo(commands.tempo, title);
+
+    for (var i = 0; i < commands.tracks.length; i++) {
+      midi.startTrack();
+      midiJs.startTrack();
+
+      for (var j = 0; j < commands.tracks[i].length; j++) {
+        var event = commands.tracks[i][j];
+
+        switch (event.cmd) {
+          case 'program':
+            midi.setChannel(event.channel);
+            midi.setInstrument(event.instrument);
+            midiJs.setChannel(event.channel);
+            midiJs.setInstrument(event.instrument);
+            break;
+
+          case 'start':
+            midi.startNote(convertPitch(event.pitch), event.volume);
+            midiJs.startNote(convertPitch(event.pitch), event.volume);
+            break;
+
+          case 'stop':
+            midi.endNote(convertPitch(event.pitch), 0); // TODO-PER: Refactor: the old midi used a duration here.
+
+            midiJs.endNote(convertPitch(event.pitch));
+            break;
+
+          case 'move':
+            midi.addRest(event.duration * baseDuration);
+            midiJs.addRest(event.duration * baseDuration);
+            break;
+
+          default:
+            console.log("MIDI create Unknown: " + event.cmd);
+        }
+      }
+
+      midi.endTrack();
+      midiJs.endTrack();
+    }
+
+    var midiFile = midi.getData();
+    var midiInline = midiJs.getData();
+    if (options.generateInline === undefined) // default is to generate inline controls.
+      options.generateInline = true;
+    if (options.generateInline && options.generateDownload) return {
+      download: midiFile,
+      inline: midiInline
+    };else if (options.generateInline) return midiInline;else return midiFile;
+  };
+
+  function convertPitch(pitch) {
+    return 60 + pitch;
+  }
+})();
+
+module.exports = create;
+
+/***/ }),
+
 /***/ "./src/midi/abc_midi_flattener.js":
 /*!****************************************!*\
   !*** ./src/midi/abc_midi_flattener.js ***!
@@ -3150,7 +3296,7 @@ module.exports = Editor;
 /*! no static exports found */
 /***/ (function(module, exports) {
 
-//    abc_midi_flattener.js: Turn a linear series of events into a series of MIDI commands.
+//    abc_midi_create.js: Turn a linear series of events into a series of MIDI commands.
 //    Copyright (C) 2010-2018 Gregory Dyke (gregdyke at gmail dot com) and Paul Rosen
 //
 //    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -3182,13 +3328,11 @@ var flatten;
   var startingTempo;
   var startingMeter;
   var tempoChangeFactor = 1;
-  var instrument;
-  var currentInstrument; // var channel;
+  var instrument; // var channel;
 
   var currentTrack;
   var pitchesTied;
   var lastNoteDurationPosition;
-  var currentTrackCounter;
   var meter = {
     num: 4,
     den: 4
@@ -3202,13 +3346,10 @@ var flatten;
   var lastChord;
   var barBeat;
   var gChordTacet = false;
-  var doBeatAccents = true;
-  var stressBeat1 = 105;
-  var stressBeatDown = 95;
-  var stressBeatUp = 85;
+  var stressBeat1 = 64;
+  var stressBeatDown = 64;
+  var stressBeatUp = 64;
   var beatFraction = 0.25;
-  var nextVolume;
-  var nextVolumeDelta;
   var drumTrack;
   var drumTrackFinished;
   var drumDefinition = {};
@@ -3224,11 +3365,9 @@ var flatten;
     startingTempo = undefined;
     startingMeter = undefined;
     tempoChangeFactor = 1;
-    instrument = undefined;
-    currentInstrument = undefined; // channel = undefined;
+    instrument = undefined; // channel = undefined;
 
     currentTrack = undefined;
-    currentTrackCounter = undefined;
     pitchesTied = {}; // For resolving chords.
 
     meter = {
@@ -3243,18 +3382,14 @@ var flatten;
     lastChord = undefined;
     barBeat = 0;
     gChordTacet = options.chordsOff ? true : false;
-    doBeatAccents = true;
-    stressBeat1 = 105;
-    stressBeatDown = 95;
-    stressBeatUp = 85;
-    beatFraction = 0.25;
-    nextVolume = undefined;
-    nextVolumeDelta = undefined; // For the drum/metronome track.
+    stressBeat1 = 64;
+    stressBeatDown = 64;
+    stressBeatUp = 64;
+    beatFraction = 0.25; // For the drum/metronome track.
 
     drumTrack = [];
     drumTrackFinished = false;
     drumDefinition = {};
-    zeroOutMilliseconds(voices);
 
     for (var i = 0; i < voices.length; i++) {
       transpose = 0;
@@ -3263,9 +3398,8 @@ var flatten;
       currentTrack = [{
         cmd: 'program',
         channel: i,
-        instrument: instrument
+        instrument: instrument ? instrument : 0
       }];
-      currentTrackCounter = 0;
       pitchesTied = {};
 
       for (var j = 0; j < voice.length; j++) {
@@ -3295,10 +3429,12 @@ var flatten;
             break;
 
           case "bar":
-            if (chordTrack.length > 0 && i === 0) {
-              resolveChords();
-              currentChords = [];
-            }
+            if (chordTrack.length > 0 && !chordTrackFinished
+            /*//vr i === 0*/
+            ) {
+                resolveChords();
+                currentChords = [];
+              }
 
             barBeat = 0;
             barAccidentals = [];
@@ -3312,20 +3448,7 @@ var flatten;
 
           case "instrument":
             if (instrument === undefined) instrument = element.program;
-            currentInstrument = element.program;
-            if (currentTrack.length > 0 && currentTrack[currentTrack.length - 1].cmd === 'program') currentTrack[currentTrack.length - 1].instrument = element.program;else {
-              var ii;
-
-              for (ii = currentTrack.length - 1; ii >= 0 && currentTrack[ii].cmd !== 'program'; ii--) {
-                ;
-              }
-
-              if (ii < 0 || currentTrack[ii].instrument !== element.program) currentTrack.push({
-                cmd: 'program',
-                channel: i,
-                instrument: element.program
-              });
-            }
+            currentTrack[0].instrument = element.program;
             break;
 
           case "channel":
@@ -3349,18 +3472,6 @@ var flatten;
 
             break;
 
-          case "vol":
-            nextVolume = element.volume;
-            break;
-
-          case "volinc":
-            nextVolumeDelta = element.volume;
-            break;
-
-          case "beataccents":
-            doBeatAccents = element.value;
-            break;
-
           default:
             // This should never happen
             console.log("MIDI creation. Unknown el_type: " + element.el_type + "\n"); // jshint ignore:line
@@ -3369,15 +3480,21 @@ var flatten;
         }
       }
 
-      if (currentTrack[0].instrument === undefined) currentTrack[0].instrument = instrument ? instrument : 0;
       tracks.push(currentTrack);
       if (chordTrack.length > 0) // Don't do chords on more than one track, so turn off chord detection after we create it.
         chordTrackFinished = true;
       if (drumTrack.length > 0) // Don't do drums on more than one track, so turn off drum after we create it.
         drumTrackFinished = true;
+    } //vr if (chordTrack.length > 0)
+
+
+    if (!options.ignoreChords && chordTrack.length > 0) {
+      //vr
+      options.hasChords = true; //vr
+
+      tracks.push(chordTrack);
     }
 
-    if (chordTrack.length > 0) tracks.push(chordTrack);
     if (drumTrack.length > 0) tracks.push(drumTrack); // Adjust the tempo according to the meter. The rules are this:
     // 1) If the denominator is 2 or 4, then always make a beat be the denominator.
     //
@@ -3407,39 +3524,9 @@ var flatten;
     return {
       tempo: startingTempo,
       instrument: instrument,
-      tracks: tracks,
-      totalDuration: totalDuration(tracks)
+      tracks: tracks
     };
   };
-
-  function zeroOutMilliseconds(voices) {
-    for (var i = 0; i < voices.length; i++) {
-      var voice = voices[i];
-
-      for (var j = 0; j < voice.length; j++) {
-        var element = voice[j];
-        delete element.currentTrackMilliseconds;
-      }
-    }
-  }
-
-  function totalDuration(tracks) {
-    var total = 0;
-
-    for (var i = 0; i < tracks.length; i++) {
-      var track = tracks[i];
-      var trackTotal = 0;
-
-      for (var j = 0; j < track.length; j++) {
-        var event = track[j];
-        if (event.duration) trackTotal += event.duration;
-      }
-
-      total = Math.max(total, trackTotal);
-    }
-
-    return total;
-  }
 
   function getBeatFraction(meter) {
     switch (meter.den) {
@@ -3519,24 +3606,8 @@ var flatten;
     // If there are guitar chords, then they are put in a separate track, but they have the same format.
     //
     var volume;
-
-    if (nextVolume) {
-      volume = nextVolume;
-      nextVolume = undefined;
-    } else if (!doBeatAccents) {
-      volume = stressBeatDown;
-    } else {
-      if (barBeat === 0) volume = stressBeat1;else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
-        volume = stressBeatDown;else volume = stressBeatUp;
-    }
-
-    if (nextVolumeDelta) {
-      volume += nextVolumeDelta;
-      nextVolumeDelta = undefined;
-    }
-
-    if (volume < 0) volume = 0;
-    if (volume > 127) volume = 127;
+    if (barBeat === 0) volume = stressBeat1;else if (barBeat % beatFraction < 0.001) // A little slop because of JavaScript floating point math.
+      volume = stressBeatDown;else volume = stressBeatUp;
     var velocity = voiceOff ? 0 : volume;
     var chord = findChord(elem);
 
@@ -3591,13 +3662,7 @@ var flatten;
       if (!bagpipes) {
         duration = writeGraceNotes(graces, stealFromCurrent, duration, null, velocity);
       }
-    } // The currentTrackCounter is the number of whole notes from the beginning of the piece.
-    // The beat fraction is the note that gets a beat (.25 is a quarter note)
-    // The tempo is in minutes and we want to get to milliseconds.
-
-
-    if (!elem.currentTrackMilliseconds) elem.currentTrackMilliseconds = [];
-    elem.currentTrackMilliseconds.push(currentTrackCounter / beatFraction / startingTempo * 60 * 1000);
+    }
 
     if (elem.pitches) {
       if (graces && bagpipes) {
@@ -3606,7 +3671,6 @@ var flatten;
       }
 
       var pitches = [];
-      elem.midiPitches = [];
 
       for (var i = 0; i < elem.pitches.length; i++) {
         var note = elem.pitches[i];
@@ -3615,53 +3679,13 @@ var flatten;
           pitch: actualPitch,
           startTie: note.startTie
         });
-        elem.midiPitches.push({
-          pitch: actualPitch + 60,
-          durationInMeasures: duration * tempoChangeFactor,
-          volume: volume,
-          instrument: currentInstrument
-        }); // TODO-PER: why is the internal numbering system offset by 60 from midi? It should probably be the same as midi.
-
         if (!pitchesTied['' + actualPitch]) // If this is the second note of a tie, we don't start it again.
           currentTrack.push({
             cmd: 'start',
             pitch: actualPitch,
             volume: velocity
-          });else {
-          // but we do add the duration to what we call back.
-          for (var last = currentTrack.length - 1; last >= 0; last--) {
-            if (currentTrack[last].cmd === 'start' && currentTrack[last].pitch === actualPitch && currentTrack[last].elem) {
-              var pitchArray = currentTrack[last].elem.midiPitches;
-
-              for (var last2 = 0; last2 < pitchArray.length; last2++) {
-                if (pitchArray[last2].pitch - 60 === actualPitch) {
-                  // TODO-PER: the 60 is to compensate for the midi pitch numbers again.
-                  pitchArray[last2].durationInMeasures += duration * tempoChangeFactor;
-                }
-              }
-
-              break;
-            }
-          }
-        }
-
-        if (note.startTie) {
-          pitchesTied['' + actualPitch] = true;
-          currentTrack[currentTrack.length - 1].elem = elem;
-        } else if (note.endTie) pitchesTied['' + actualPitch] = false;
-      }
-
-      if (elem.gracenotes) {
-        for (var j = 0; j < elem.gracenotes.length; j++) {
-          elem.midiGraceNotePitches = [];
-          var grace = elem.gracenotes[j];
-          elem.midiGraceNotePitches.push({
-            pitch: adjustPitch(grace) + 60,
-            durationInMeasures: 0,
-            volume: volume,
-            instrument: currentInstrument
           });
-        }
+        if (note.startTie) pitchesTied['' + actualPitch] = true;else if (note.endTie) pitchesTied['' + actualPitch] = false;
       }
 
       var thisBreakBetweenNotes = normalBreakBetweenNotes;
@@ -3677,7 +3701,6 @@ var flatten;
         duration: soundDuration * tempoChangeFactor
       });
       lastNoteDurationPosition = currentTrack.length - 1;
-      currentTrackCounter += soundDuration * tempoChangeFactor;
 
       for (var ii = 0; ii < pitches.length; ii++) {
         if (!pitchesTied['' + pitches[ii].pitch]) currentTrack.push({
@@ -3690,13 +3713,11 @@ var flatten;
         cmd: 'move',
         duration: thisBreakBetweenNotes * tempoChangeFactor
       });
-      currentTrackCounter += thisBreakBetweenNotes * tempoChangeFactor;
     } else if (elem.rest) {
       currentTrack.push({
         cmd: 'move',
         duration: duration * tempoChangeFactor
       });
-      currentTrackCounter += duration * tempoChangeFactor;
     }
 
     if (elem.endTriplet) {
@@ -3792,10 +3813,10 @@ var flatten;
 
   function writeGraceNotes(graces, stealFromCurrent, duration, skipNote, velocity) {
     for (var g = 0; g < graces.length; g++) {
-      var gp = graces[g];
+      var gp = adjustPitch(graces[g]);
       if (gp !== skipNote) currentTrack.push({
         cmd: 'start',
-        pitch: gp.pitch,
+        pitch: gp,
         volume: velocity
       });
       currentTrack.push({
@@ -3804,7 +3825,7 @@ var flatten;
       });
       if (gp !== skipNote) currentTrack.push({
         cmd: 'stop',
-        pitch: gp.pitch
+        pitch: gp
       });
       if (!stealFromCurrent) currentTrack[lastNoteDurationPosition].duration -= graces[g].duration;
       duration -= graces[g].duration;
@@ -3881,17 +3902,10 @@ var flatten;
     chick = chordNotes(bass, arr[0]);
 
     if (arr.length === 2) {
-      var explicitBass = basses[arr[1].substring(0, 1)];
+      var explicitBass = basses[arr[1]];
 
       if (explicitBass) {
-        var bassAcc = arr[1].substring(1);
-        var bassShift = {
-          '#': 1,
-          '♯': 1,
-          'b': -1,
-          '♭': -1
-        }[bassAcc] || 0;
-        bass = basses[arr[1].substring(0, 1)] + bassShift + transpose;
+        bass = basses[arr[1]] + transpose;
         bass2 = bass;
       }
     }
@@ -4361,6 +4375,458 @@ module.exports = flatten;
 
 /***/ }),
 
+/***/ "./src/midi/abc_midi_js_preparer.js":
+/*!******************************************!*\
+  !*** ./src/midi/abc_midi_js_preparer.js ***!
+  \******************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+//    abc_midi_js_preparer.js: Create the structure that MIDI.js expects.
+//    Copyright (C) 2010-2018 Gregory Dyke (gregdyke at gmail dot com) and Paul Rosen
+//
+//    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+//    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+//    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+//    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+var Preparer;
+
+(function () {
+  "use strict";
+
+  Preparer = function Preparer() {
+    this.tempo = 0;
+    this.timeFactor = 0;
+    this.output = [];
+    this.currentChannel = 0;
+    this.currentInstrument = 0;
+    this.track = 0;
+    this.nextDuration = 0;
+    this.tracks = [[]];
+  };
+
+  Preparer.prototype.setInstrument = function (instrument) {
+    this.currentInstrument = instrument;
+    var ev = [{
+      ticksToEvent: 0,
+      track: this.track,
+      event: {
+        channel: this.currentChannel,
+        deltaTime: 0,
+        programNumber: this.currentInstrument,
+        subtype: 'programChange',
+        type: 'channel'
+      }
+    }, this.nextDuration * this.timeFactor];
+    this.tracks[this.track].push(ev);
+  };
+
+  Preparer.prototype.setChannel = function (channel) {
+    this.currentChannel = channel;
+  };
+
+  Preparer.prototype.startTrack = function () {
+    this.track++;
+    this.tracks[this.track] = [];
+    this.nextDuration = 0;
+  };
+
+  Preparer.prototype.setGlobalInfo = function (tempo, title) {
+    this.tempo = tempo;
+    var mspb = Math.round(1.0 / tempo * 60000000);
+    this.timeFactor = mspb / 480000;
+    var ev = [{
+      ticksToEvent: 0,
+      track: this.track,
+      event: {
+        deltaTime: 0,
+        microsecondsPerBeat: mspb,
+        subtype: 'setTempo',
+        type: 'meta'
+      }
+    }, this.nextDuration * this.timeFactor]; //		this.tracks[this.track].push(ev);
+
+    ev = [{
+      ticksToEvent: 0,
+      track: this.track,
+      event: {
+        deltaTime: 0,
+        subtype: 'trackName',
+        text: title,
+        type: 'meta'
+      }
+    }, this.nextDuration * this.timeFactor]; //		this.tracks[this.track].push(ev);
+
+    ev = [{
+      ticksToEvent: 0,
+      track: this.track,
+      event: {
+        deltaTime: 0,
+        subtype: 'endOfTrack',
+        type: 'meta'
+      }
+    }, this.nextDuration * this.timeFactor]; //		this.tracks[this.track].push(ev);
+  };
+
+  Preparer.prototype.startNote = function (pitch, volume) {
+    var deltaTime = Math.floor(this.nextDuration / 5) * 5;
+    var ev = [{
+      ticksToEvent: deltaTime,
+      track: this.track,
+      event: {
+        deltaTime: deltaTime,
+        channel: this.currentChannel,
+        type: "channel",
+        noteNumber: pitch,
+        velocity: volume,
+        subtype: "noteOn"
+      }
+    }, this.nextDuration * this.timeFactor];
+    this.tracks[this.track].push(ev);
+    this.nextDuration = 0;
+  };
+
+  Preparer.prototype.endNote = function (pitch) {
+    var deltaTime = Math.floor(this.nextDuration / 5) * 5;
+    var ev = [{
+      ticksToEvent: deltaTime,
+      track: this.track,
+      event: {
+        deltaTime: deltaTime,
+        channel: this.currentChannel,
+        type: "channel",
+        noteNumber: pitch,
+        velocity: 0,
+        subtype: "noteOff"
+      }
+    }, this.nextDuration * this.timeFactor];
+    this.tracks[this.track].push(ev);
+    this.nextDuration = 0;
+  };
+
+  Preparer.prototype.addRest = function (duration) {
+    this.nextDuration += duration;
+  };
+
+  Preparer.prototype.endTrack = function () {
+    var ev = [{
+      ticksToEvent: 0,
+      track: this.track,
+      event: {
+        deltaTime: 0,
+        type: "meta",
+        subtype: "endOfTrack"
+      }
+    }, 0]; //		this.tracks[this.track].push(ev);
+  };
+
+  function addAbsoluteTime(tracks) {
+    for (var i = 0; i < tracks.length; i++) {
+      var absTime = 0;
+
+      for (var j = 0; j < tracks[i].length; j++) {
+        absTime += tracks[i][j][1];
+        tracks[i][j].absTime = absTime;
+      }
+    }
+  }
+
+  function combineTracks(tracks) {
+    var output = [];
+
+    for (var i = 0; i < tracks.length; i++) {
+      for (var j = 0; j < tracks[i].length; j++) {
+        output.push(tracks[i][j]);
+      }
+    }
+
+    return output;
+  }
+
+  function sortTracks(output) {
+    // First sort by time. If the time is the same, sort by channel, if the channel is the same, put the programChange first.
+    return output.sort(function (a, b) {
+      if (a.absTime > b.absTime) return 1;
+
+      if (a.absTime === b.absTime) {
+        if (a.length > 0 && b.length > 0 && a[0].event && b[0].event) {
+          // I think that there will always be at least one event, but testing just in case.
+          var aChannel = a[0].event.channel;
+          var bChannel = b[0].event.channel;
+          if (aChannel > bChannel) return 1;else if (aChannel < bChannel) return -1;else {
+            var bIsPreferred = b[0].event.subtype === "programChange";
+            if (bIsPreferred) return 1;
+          }
+        }
+      }
+
+      return -1;
+    });
+  }
+
+  function adjustTime(output) {
+    var lastTime = 0;
+
+    for (var i = 0; i < output.length; i++) {
+      var thisTime = output[i].absTime;
+      output[i][1] = thisTime - lastTime;
+      lastTime = thisTime;
+    }
+  }
+
+  function weaveTracks(tracks) {
+    // Each track has a progression of delta times. To combine them, first assign an absolute time to each event,
+    // then make one large track of all the tracks, sort it by absolute time, then adjust the amount of time each
+    // event causes time to move. That is, the movement was figured out as the distance from the last note in the track,
+    // but now we want the distance from the last note on ANY track.
+    addAbsoluteTime(tracks);
+    var output = combineTracks(tracks);
+    output = sortTracks(output);
+    adjustTime(output);
+    return output;
+  }
+
+  Preparer.prototype.getData = function () {
+    return weaveTracks(this.tracks);
+  };
+})();
+
+module.exports = Preparer;
+
+/***/ }),
+
+/***/ "./src/midi/abc_midi_renderer.js":
+/*!***************************************!*\
+  !*** ./src/midi/abc_midi_renderer.js ***!
+  \***************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+//    abc_midi_renderer.js: Create the actual format for the midi.
+//    Copyright (C) 2010-2018 Gregory Dyke (gregdyke at gmail dot com) and Paul Rosen
+//
+//    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+//    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+//    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+//    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+var rendererFactory;
+
+var vrUtils = __webpack_require__(/*! ../vrode/vrutils */ "./src/vrode/vrutils.js"); //vr
+
+
+(function () {
+  "use strict";
+
+  function setAttributes(elm, attrs) {
+    for (var attr in attrs) {
+      if (attrs.hasOwnProperty(attr)) elm.setAttribute(attr, attrs[attr]);
+    }
+
+    return elm;
+  }
+
+  function Midi() {
+    this.trackstrings = "";
+    this.trackcount = 0;
+    this.noteOnAndChannel = "%90";
+  }
+
+  Midi.prototype.setTempo = function (qpm) {
+    //console.log("setTempo",qpm);
+    if (this.trackcount === 0) {
+      this.startTrack();
+      this.track += "%00%FF%51%03" + toHex(Math.round(60000000 / qpm), 6);
+      this.endTrack();
+    }
+  };
+
+  Midi.prototype.setGlobalInfo = function (qpm, name) {
+    //console.log("setGlobalInfo",qpm, key, time, name);
+    if (this.trackcount === 0) {
+      this.startTrack();
+      this.track += "%00%FF%51%03" + toHex(Math.round(60000000 / qpm), 6); // TODO-PER: we could also store the key and time signatures, something like:
+      //00 FF 5902 03 00 - key signature
+      //00 FF 5804 04 02 30 08 - time signature
+
+      if (name) {
+        name = vrUtils.encodeUTF8(name); //vr
+
+        this.track += "%00%FF%03" + toHex(name.length, 2); //vr
+
+        for (var i = 0; i < name.length; i++) {
+          //vr
+          this.track += toHex(name.charCodeAt(i), 2);
+        } //vr				// If there are multi-byte chars, we don't know how long the string will be until we create it.
+        //vr var nameArray = "";				//vr for (var i = 0; i < name.length; i++)
+        //vr 	this.track += toHex(name.charCodeAt(i), 2);
+        //vr 	nameArray += toHex(name.charCodeAt(i), 2);
+        //vr this.track += "%00%FF%03" + toHex(nameArray.length/3, 2); // Each byte is represented by three chars "%XX", so divide by 3 to get the length.
+        //vr this.track += nameArray;
+
+      }
+
+      this.endTrack();
+    }
+  };
+
+  Midi.prototype.startTrack = function () {
+    //console.log("startTrack");
+    this.track = "";
+    this.silencelength = 0;
+    this.trackcount++;
+    this.first = true;
+
+    if (this.instrument) {
+      this.setInstrument(this.instrument);
+    }
+  };
+
+  Midi.prototype.endTrack = function () {
+    //console.log("endTrack");
+    var tracklength = toHex(this.track.length / 3 + 4, 8);
+    this.track = "MTrk" + tracklength + // track header
+    this.track + '%00%FF%2F%00'; // track end
+
+    this.trackstrings += this.track;
+  };
+
+  Midi.prototype.setInstrument = function (number) {
+    //console.log("setInstrument", number);
+    if (this.track) this.track = "%00%C0" + toHex(number, 2) + this.track;else this.track = "%00%C0" + toHex(number, 2);
+    this.instrument = number;
+  };
+
+  Midi.prototype.setChannel = function (number) {
+    this.channel = number;
+    this.noteOnAndChannel = "%9" + this.channel.toString(16);
+  };
+
+  Midi.prototype.startNote = function (pitch, loudness) {
+    //console.log("startNote", pitch, loudness);
+    this.track += toDurationHex(this.silencelength); // only need to shift by amount of silence (if there is any)
+
+    this.silencelength = 0;
+
+    if (this.first) {
+      this.first = false;
+      this.track += this.noteOnAndChannel;
+    }
+
+    this.track += "%" + pitch.toString(16) + toHex(loudness, 2); //note
+  };
+
+  Midi.prototype.endNote = function (pitch, length) {
+    //console.log("endNote", pitch, length);
+    this.track += toDurationHex(this.silencelength + length); // only need to shift by amount of silence (if there is any)
+
+    this.silencelength = 0; //		this.track += toDurationHex(length); //duration
+
+    this.track += "%" + pitch.toString(16) + "%00"; //end note
+  };
+
+  Midi.prototype.addRest = function (length) {
+    //console.log("addRest", length);
+    this.silencelength += length;
+  };
+
+  Midi.prototype.getData = function () {
+    return "data:audio/midi," + "MThd%00%00%00%06%00%01" + toHex(this.trackcount, 4) + "%01%e0" + // header
+    this.trackstrings;
+  };
+
+  Midi.prototype.embed = function (parent, noplayer) {
+    var data = this.getData();
+    var link = setAttributes(document.createElement('a'), {
+      href: data
+    });
+    link.innerHTML = "download midi";
+    parent.insertBefore(link, parent.firstChild);
+    if (noplayer) return;
+    var embed = setAttributes(document.createElement('embed'), {
+      src: data,
+      type: 'video/quicktime',
+      controller: 'true',
+      autoplay: 'false',
+      loop: 'false',
+      enablejavascript: 'true',
+      style: 'display:block; height: 20px;'
+    });
+    parent.insertBefore(embed, parent.firstChild);
+  }; // s is assumed to be of even length
+
+
+  function encodeHex(s) {
+    var ret = "";
+
+    for (var i = 0; i < s.length; i += 2) {
+      ret += "%";
+      ret += s.substr(i, 2);
+    }
+
+    return ret;
+  }
+
+  function toHex(n, padding) {
+    var s = n.toString(16);
+
+    while (s.length < padding) {
+      s = "0" + s;
+    }
+
+    return encodeHex(s);
+  }
+
+  function toDurationHex(n) {
+    var res = 0;
+    var a = []; // cut up into 7 bit chunks;
+
+    while (n !== 0) {
+      a.push(n & 0x7F);
+      n = n >> 7;
+    } // join the 7 bit chunks together, all but last chunk get leading 1
+
+
+    for (var i = a.length - 1; i >= 0; i--) {
+      res = res << 8;
+      var bits = a[i];
+
+      if (i !== 0) {
+        bits = bits | 0x80;
+      }
+
+      res = res | bits;
+    }
+
+    var padding = res.toString(16).length;
+    padding += padding % 2;
+    return toHex(res, padding);
+  }
+
+  rendererFactory = function rendererFactory() {
+    return new Midi();
+  };
+})();
+
+module.exports = rendererFactory;
+
+/***/ }),
+
 /***/ "./src/midi/abc_midi_sequencer.js":
 /*!****************************************!*\
   !*** ./src/midi/abc_midi_sequencer.js ***!
@@ -4397,7 +4863,8 @@ var sequence;
   sequence = function sequence(abctune, options) {
     // Global options
     options = options || {};
-    var qpm = undefined;
+    var qpm = 180; // The tempo if there isn't a tempo specified.
+
     var program = options.program || 0; // The program if there isn't a program specified.
 
     var transpose = options.midiTranspose || 0;
@@ -4431,19 +4898,13 @@ var sequence;
     // %%MIDI chordname name n1 n2 n3 n4 n5 n6
     //%%MIDI beat ⟨int1⟩ ⟨int2⟩ ⟨int3⟩ ⟨int4⟩: controls the volumes of the notes in a measure. The first note in a bar has volume ⟨int1⟩; other ‘strong’ notes have volume ⟨int2⟩ and all the rest have volume ⟨int3⟩. These values must be in the range 0–127. The parameter ⟨int4⟩ determines which notes are ‘strong’. If the time signature is x/y, then each note is given a position number k = 0, 1, 2. . . x-1 within each bar. If k is a multiple of ⟨int4⟩, then the note is ‘strong’.
 
-    var startingMidi = [];
-
     if (abctune.formatting.midi) {
       //console.log("MIDI Formatting:", abctune.formatting.midi);
       var globals = abctune.formatting.midi;
 
-      if (globals.program && globals.program.length > 0) {
+      if (globals.program) {
         program = globals.program[0];
-
-        if (globals.program.length > 1) {
-          program = globals.program[1];
-          channel = globals.program[0];
-        }
+        if (globals.program.length > 1) channel = globals.program[1];
       }
 
       if (globals.transpose) transpose = globals.transpose[0];
@@ -4452,23 +4913,12 @@ var sequence;
       if (globals.drumbars) drumBars = globals.drumbars[0];
       if (globals.drumon) drumOn = true;
       if (channel === 10) program = PERCUSSION_PROGRAM;
-      if (globals.beat) startingMidi.push({
-        el_type: 'beat',
-        beats: globals.beat
-      });
-      if (globals.nobeataccents) startingMidi.push({
-        el_type: 'beataccents',
-        value: false
-      });
     } // Specified options in abc string.
-    // If the tempo was passed in, use that.
-    // If the tempo is specified, use that.
-    // If there is a default, use that.
-    // Otherwise, use the default.
+    // If the tempo was passed in, use that. If the tempo is specified, use that. Otherwise, use the default.
 
 
-    if (options.qpm) qpm = parseInt(options.qpm, 10);else if (abctune.metaText.tempo) qpm = interpretTempo(abctune.metaText.tempo);else if (options.defaultQpm) qpm = options.defaultQpm;else qpm = 180; // The tempo if there isn't a tempo specified.
-
+    if (abctune.metaText.tempo) qpm = interpretTempo(abctune.metaText.tempo);
+    if (options.qpm) qpm = parseInt(options.qpm, 10);
     var startVoice = [];
     if (bagpipes) startVoice.push({
       el_type: 'bagpipes'
@@ -4488,11 +4938,7 @@ var sequence;
     startVoice.push({
       el_type: 'tempo',
       qpm: qpm
-    });
-
-    for (var ss = 0; ss < startingMidi.length; ss++) {
-      startVoice.push(startingMidi[ss]);
-    } // the relevant part of the input structure is:
+    }); // the relevant part of the input structure is:
     // abctune
     //		array lines
     //			array staff
@@ -4501,7 +4947,6 @@ var sequence;
     //				array voices
     //					array abcelem
     // visit each voice completely in turn
-
 
     var voices = [];
     var startRepeatPlaceholder = []; // There is a place holder for each voice.
@@ -4603,34 +5048,6 @@ var sequence;
                 case "note":
                   // regular items are just pushed.
                   if (!elem.rest || elem.rest.type !== 'spacer') {
-                    if (elem.decoration) {
-                      if (elem.decoration.indexOf('ppp') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [30, 20, 10, 1]
-                      });else if (elem.decoration.indexOf('pp') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [45, 35, 20, 1]
-                      });else if (elem.decoration.indexOf('p') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [60, 50, 35, 1]
-                      });else if (elem.decoration.indexOf('mp') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [75, 65, 50, 1]
-                      });else if (elem.decoration.indexOf('mf') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [90, 80, 65, 1]
-                      });else if (elem.decoration.indexOf('f') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [105, 95, 80, 1]
-                      });else if (elem.decoration.indexOf('ff') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [120, 110, 95, 1]
-                      });else if (elem.decoration.indexOf('fff') >= 0) voices[voiceNumber].push({
-                        el_type: 'beat',
-                        beats: [127, 125, 110, 1]
-                      });
-                    }
-
                     voices[voiceNumber].push(elem);
                     noteEventsInBar++;
                   }
@@ -4780,34 +5197,6 @@ var sequence;
                       voices[voiceNumber].push({
                         el_type: 'beat',
                         beats: elem.params
-                      });
-                      break;
-
-                    case "nobeataccents":
-                      voices[voiceNumber].push({
-                        el_type: 'beataccents',
-                        value: false
-                      });
-                      break;
-
-                    case "beataccents":
-                      voices[voiceNumber].push({
-                        el_type: 'beataccents',
-                        value: true
-                      });
-                      break;
-
-                    case "vol":
-                      voices[voiceNumber].push({
-                        el_type: 'vol',
-                        volume: elem.params[0]
-                      });
-                      break;
-
-                    case "volinc":
-                      voices[voiceNumber].push({
-                        el_type: 'volinc',
-                        volume: elem.params[0]
                       });
                       break;
 
@@ -6213,7 +6602,9 @@ var Parse = function Parse() {
       if (multilineVars.currentVoice.transpose) params.clef.transpose = multilineVars.currentVoice.transpose;
     }
 
-    var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === 0 && multilineVars.currentVoice.index === 0;
+    var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === multilineVars.firstVoiceStaffNum
+    /*//vr 0*/
+    && multilineVars.currentVoice.index === 0;
     if (multilineVars.barNumbers === 0 && isFirstVoice && multilineVars.currBarNumber !== 1) params.barNumber = multilineVars.currBarNumber;
     tune.startNewLine(params);
     if (multilineVars.key.impliedNaturals) delete multilineVars.key.impliedNaturals;
@@ -6529,11 +6920,17 @@ var Parse = function Parse() {
             }
 
             if (el.decoration !== undefined) bar.decoration = el.decoration;
-            if (el.chord !== undefined) bar.chord = el.chord;
-            if (bar.startEnding && multilineVars.barFirstEndingNum === undefined) multilineVars.barFirstEndingNum = multilineVars.currBarNumber;else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum) multilineVars.currBarNumber = multilineVars.barFirstEndingNum;else if (bar.endEnding) multilineVars.barFirstEndingNum = undefined;
+            if (el.chord !== undefined) bar.chord = el.chord; //vr >>> if (bar.startEnding && multilineVars.barFirstEndingNum === undefined)
+            //	multilineVars.barFirstEndingNum = multilineVars.currBarNumber;
+            //else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum)
+            //	multilineVars.currBarNumber = multilineVars.barFirstEndingNum;
+            //else if (bar.endEnding)
+            //	multilineVars.barFirstEndingNum = undefined;
 
             if (bar.type !== 'bar_invisible' && multilineVars.measureNotEmpty) {
-              var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === 0 && multilineVars.currentVoice.index === 0;
+              var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === multilineVars.firstVoiceStaffNum
+              /*//vr 0*/
+              && multilineVars.currentVoice.index === 0;
 
               if (isFirstVoice) {
                 multilineVars.currBarNumber++;
@@ -6913,6 +7310,8 @@ var Parse = function Parse() {
     tune.reset();
     if (switches.print) tune.media = 'print';
     multilineVars.reset();
+    multilineVars.firstVoiceStaffNum = switches.firstVoiceStaffNum ? switches.firstVoiceStaffNum : 0; //vr
+
     multilineVars.iChar = startPos;
 
     if (switches.visualTranspose) {
@@ -9124,9 +9523,10 @@ var parseKeyVoice = {};
     warn = warn_;
     multilineVars = multilineVars_;
     tune = tune_;
-  };
+  }; //vr content getKeys moved from parseKeyVoice.standardKey();
 
-  parseKeyVoice.standardKey = function (keyName, root, acc, localTranspose) {
+
+  function getKeys() {
     var key1sharp = {
       acc: 'sharp',
       note: 'f'
@@ -9183,7 +9583,7 @@ var parseKeyVoice = {};
       acc: 'flat',
       note: 'F'
     };
-    var keys = {
+    return {
       'C#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
       'A#m': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
       'G#Mix': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
@@ -9298,6 +9698,13 @@ var parseKeyVoice = {};
       'G#': [key1flat, key2flat, key3flat, key4flat],
       'Gbm': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp]
     };
+  }
+
+  parseKeyVoice.getKeys = getKeys; //vr
+
+  parseKeyVoice.standardKey = function (keyName, root, acc, localTranspose) {
+    var keys = getKeys(); //vr (content getKeys() moved from here);
+
     return transpose.keySignature(multilineVars, keys, keyName, root, acc, localTranspose);
   };
 
@@ -12070,6 +12477,10 @@ transpose.note = function (multilineVars, el) {
   }
 };
 
+transpose.accidentals = accidentals; //vr
+
+transpose.accidentals2 = accidentals2; //vr
+
 module.exports = transpose;
 
 /***/ }),
@@ -12785,15 +13196,19 @@ function calcLineWraps(tune, widths, abcString, params, Parse, engraver_controll
     });
     lineBreaks = ff.lineBreaks; // We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
 
-    ff = optimizeLineWidths(widths, lineBreakPoint, lineBreaks, explanation);
-    explanation.attempts.push({
-      type: "Optimize",
-      failed: ff.failed,
-      reason: ff.reason,
-      lineBreaks: ff.lineBreaks,
-      totals: ff.totals
-    });
-    if (!ff.failed) lineBreaks = ff.lineBreaks;
+    if (params.optimizeFreeFormLineBreaks) {
+      //vr ()on some files[ChildInTime.kar] suspended
+      ff = optimizeLineWidths(widths, lineBreakPoint, lineBreaks, explanation);
+      explanation.attempts.push({
+        type: "Optimize",
+        failed: ff.failed,
+        reason: ff.reason,
+        lineBreaks: ff.lineBreaks,
+        totals: ff.totals
+      });
+      if (!ff.failed) lineBreaks = ff.lineBreaks;
+    } //vr
+
   } // If the vertical space exceeds targetHeight, remove a line and try again. If that is too crowded, then don't use it.
 
 
@@ -14650,6 +15065,75 @@ TextPrinter.prototype.multiplyString = function (s, n) {
 };
 
 module.exports = TextPrinter;
+
+/***/ }),
+
+/***/ "./src/vrode/vrutils.js":
+/*!******************************!*\
+  !*** ./src/vrode/vrutils.js ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+var vrUrils = {};
+
+vrUrils.encodeUTF8 = function (string) {
+  string = string.replace(/\r\n/g, "\n");
+  var utftext = "";
+
+  try {
+    for (var n = 0; n < string.length; n++) {
+      var c = string.charCodeAt(n);
+
+      if (c < 128) {
+        utftext += String.fromCharCode(c);
+      } else if (c > 127 && c < 2048) {
+        utftext += String.fromCharCode(c >> 6 | 192);
+        utftext += String.fromCharCode(c & 63 | 128);
+      } else {
+        utftext += String.fromCharCode(c >> 12 | 224);
+        utftext += String.fromCharCode(c >> 6 & 63 | 128);
+        utftext += String.fromCharCode(c & 63 | 128);
+      }
+    }
+  } catch (e) {
+    utftext = "";
+  }
+
+  return utftext;
+};
+
+vrUrils.decodeUTF8 = function (utftext) {
+  var string = "";
+  var i = 0;
+  var c, c2, c3;
+
+  try {
+    while (i < utftext.length) {
+      c = utftext.charCodeAt(i);
+
+      if (c < 128) {
+        string += String.fromCharCode(c);
+        i++;
+      } else if (c > 191 && c < 224) {
+        c2 = utftext.charCodeAt(i + 1);
+        string += String.fromCharCode((c & 31) << 6 | c2 & 63);
+        i += 2;
+      } else {
+        c2 = utftext.charCodeAt(i + 1);
+        c3 = utftext.charCodeAt(i + 2);
+        string += String.fromCharCode((c & 15) << 12 | (c2 & 63) << 6 | c3 & 63);
+        i += 3;
+      }
+    }
+  } catch (e) {
+    string = "";
+  }
+
+  return string;
+};
+
+module.exports = vrUrils;
 
 /***/ }),
 
@@ -19273,6 +19757,7 @@ Renderer.prototype.initVerticalSpace = function () {
   are automatic.
   <float> must be between 0 (natural spacing)
   and 1 (max shrinking).
+  
   // This next value is used to compute the natural spacing of
   // the notes. The base spacing of the crotchet is always
   // 40 pts. When the duration of a note type is twice the
@@ -19284,7 +19769,9 @@ Renderer.prototype.initVerticalSpace = function () {
   // semiquaver is 20 pts.
   // Setting this value to 1 sets all note spacing to 40 pts.
   noteSpacingFactor: 1.414, // Set the note spacing factor to <float> (range 1..2).
+  
   scale <float> Default: 0.75 Set the page scale factor. Note that the header and footer are not scaled.
+  
   stretchlast <float>Default: 0.8
   Stretch the last music line of a tune when it exceeds
   the <float> fraction of the page width.

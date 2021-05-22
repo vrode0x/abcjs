@@ -125,7 +125,7 @@ var flatten;
 						transpose = element.transpose;
 						break;
 					case "bar":
-						if (chordTrack.length > 0 && i === 0) {
+						if (chordTrack.length > 0 && !chordTrackFinished /*//vr i === 0*/) {
 							resolveChords();
 							currentChords = [];
 						}
@@ -172,8 +172,11 @@ var flatten;
 			if (drumTrack.length > 0) // Don't do drums on more than one track, so turn off drum after we create it.
 				drumTrackFinished = true;
 		}
-		if (chordTrack.length > 0)
+		//vr if (chordTrack.length > 0)
+		if (!options.ignoreChords && (chordTrack.length > 0)) {//vr
+			options.hasChords = true;//vr
 			tracks.push(chordTrack);
+		}
 		if (drumTrack.length > 0)
 			tracks.push(drumTrack);
 		// Adjust the tempo according to the meter. The rules are this:
