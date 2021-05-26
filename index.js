@@ -3,6 +3,8 @@ var version = require('./version');
 var animation = require('./src/api/abc_animation');
 var tuneBook = require('./src/api/abc_tunebook');
 var sequence = require('./src/synth/abc_midi_sequencer');
+var midiCreate = require("./src/midi/abc_midi_create");//vr
+var Parse = require('./src/parse/abc_parse');//vr
 
 var abcjs = {};
 
@@ -52,4 +54,12 @@ abcjs.synth = {
 abcjs['Editor'] = require('./src/edit/abc_editor');
 abcjs['EditArea'] = require('./src/edit/abc_editarea');
 
+abcjs['midiCreate'] = midiCreate;//vr
+abcjs['Parse'] = Parse;//vr
+abcjs['Transpose'] = require("./src/parse/abc_transpose");//vr
+abcjs['spacing'] = require('./src/write/abc_spacing');//vr
+abcjs['parseKeyVoice'] = require("./src/parse/abc_parse_key_voice");//vr
+abcjs['vrVer'] = 6;//vr
+
 module.exports = abcjs;
+

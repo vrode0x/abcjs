@@ -474,6 +474,7 @@ var Parse = function() {
 		if (!switches) switches = {};
 		if (!startPos) startPos = 0;
 		tuneBuilder.reset();
+		multilineVars.firstVoiceStaffNum = (switches.firstVoiceStaffNum) ? switches.firstVoiceStaffNum : 0;//vr
 
 		// Take care of whatever line endings come our way
 		// Tack on newline temporarily to make the last line continuation work

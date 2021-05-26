@@ -156,6 +156,7 @@ var pitchesToPerc = require('./pitches-to-perc');
 						transpose = element.transpose;
 						break;
 					case "bar":
+						//?Check if (chordTrack.length > 0 && !chordTrackFinished /*//vr i === 0*/) {
 						if (chordTrack.length > 0 && (chordSourceTrack === false || i === chordSourceTrack)) {
 							resolveChords(lastBarTime, timeToRealTime(element.time));
 							currentChords = [];
@@ -229,8 +230,11 @@ var pitchesToPerc = require('./pitches-to-perc');
 		if (options.detuneOctave)
 			findOctaves(tracks, parseInt(options.detuneOctave, 10));
 
-		if (chordTrack.length > 0)
+		//vr if (chordTrack.length > 0)
+		if (!options.ignoreChords && (chordTrack.length > 0)) {//vr
+			options.hasChords = true;//vr
 			tracks.push(chordTrack);
+		}
 		if (drumTrack.length > 0)
 			tracks.push(drumTrack);
 

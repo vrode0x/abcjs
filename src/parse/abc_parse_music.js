@@ -274,14 +274,14 @@ MusicParser.prototype.parseMusic = function(line) {
 						bar.decoration = el.decoration;
 					if (el.chord !== undefined)
 						bar.chord = el.chord;
-					if (bar.startEnding && multilineVars.barFirstEndingNum === undefined)
-						multilineVars.barFirstEndingNum = multilineVars.currBarNumber;
-					else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum)
-						multilineVars.currBarNumber = multilineVars.barFirstEndingNum;
-					else if (bar.endEnding)
-						multilineVars.barFirstEndingNum = undefined;
+					//vr >>> if (bar.startEnding && multilineVars.barFirstEndingNum === undefined)
+					//	multilineVars.barFirstEndingNum = multilineVars.currBarNumber;
+					//else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum)
+					//	multilineVars.currBarNumber = multilineVars.barFirstEndingNum;
+					//else if (bar.endEnding)
+					//	multilineVars.barFirstEndingNum = undefined;
 					if (bar.type !== 'bar_invisible' && multilineVars.measureNotEmpty) {
-						var isFirstVoice = multilineVars.currentVoice === undefined || (multilineVars.currentVoice.staffNum ===  0 && multilineVars.currentVoice.index ===  0);
+						var isFirstVoice = multilineVars.currentVoice === undefined || (multilineVars.currentVoice.staffNum ===  multilineVars.firstVoiceStaffNum/*//vr 0*/ && multilineVars.currentVoice.index ===  0);
 						if (isFirstVoice) {
 							multilineVars.currBarNumber++;
 							if (multilineVars.barNumbers && multilineVars.currBarNumber % multilineVars.barNumbers === 0)
@@ -1040,7 +1040,7 @@ MusicParser.prototype.startNewLine = function() {
 		if (multilineVars.currentVoice.transpose)
 			params.clef.transpose = multilineVars.currentVoice.transpose;
 	}
-	var isFirstVoice = multilineVars.currentVoice === undefined || (multilineVars.currentVoice.staffNum ===  0 && multilineVars.currentVoice.index ===  0);
+	var isFirstVoice = multilineVars.currentVoice === undefined || (multilineVars.currentVoice.staffNum ===  multilineVars.firstVoiceStaffNum/*//vr 0*/ && multilineVars.currentVoice.index ===  0);
 	if (multilineVars.barNumbers === 0 && isFirstVoice && multilineVars.currBarNumber !== 1)
 		params.barNumber = multilineVars.currBarNumber;
 	tuneBuilder.startNewLine(params);

@@ -27,6 +27,12 @@ var tuneBook = __webpack_require__(/*! ./src/api/abc_tunebook */ "./src/api/abc_
 
 var sequence = __webpack_require__(/*! ./src/synth/abc_midi_sequencer */ "./src/synth/abc_midi_sequencer.js");
 
+var midiCreate = __webpack_require__(/*! ./src/midi/abc_midi_create */ "./src/midi/abc_midi_create.js"); //vr
+
+
+var Parse = __webpack_require__(/*! ./src/parse/abc_parse */ "./src/parse/abc_parse.js"); //vr
+
+
 var abcjs = {};
 abcjs.signature = "abcjs-basic v" + version;
 Object.keys(animation).forEach(function (key) {
@@ -80,6 +86,18 @@ abcjs.synth = {
 };
 abcjs['Editor'] = __webpack_require__(/*! ./src/edit/abc_editor */ "./src/edit/abc_editor.js");
 abcjs['EditArea'] = __webpack_require__(/*! ./src/edit/abc_editarea */ "./src/edit/abc_editarea.js");
+abcjs['midiCreate'] = midiCreate; //vr
+
+abcjs['Parse'] = Parse; //vr
+
+abcjs['Transpose'] = __webpack_require__(/*! ./src/parse/abc_transpose */ "./src/parse/abc_transpose.js"); //vr
+
+abcjs['spacing'] = __webpack_require__(/*! ./src/write/abc_spacing */ "./src/write/abc_spacing.js"); //vr
+
+abcjs['parseKeyVoice'] = __webpack_require__(/*! ./src/parse/abc_parse_key_voice */ "./src/parse/abc_parse_key_voice.js"); //vr
+
+abcjs['vrVer'] = 6; //vr
+
 module.exports = abcjs;
 
 /***/ }),
@@ -1110,8 +1128,13 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
     if (!removeDiv && params.wrap && params.staffwidth) {
       tune = doLineWrapping(div, tune, tuneNumber, abcString, params);
       return tune;
-    } else if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, params, tuneNumber);else renderEachLineSeparately(div, tune, params, tuneNumber);
+    }
 
+    if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params); //vr
+
+    /*//vr else*/
+
+    if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, params, tuneNumber);else renderEachLineSeparately(div, tune, params, tuneNumber);
     if (removeDiv) div.parentNode.removeChild(div);
     return null;
   }
@@ -1120,6 +1143,8 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
 };
 
 function doLineWrapping(div, tune, tuneNumber, abcString, params) {
+  if (params.onBeforeLineWrapping) params.onBeforeLineWrapping(div, tune, tuneNumber, abcString, params); //vr
+
   var engraver_controller = new EngraverController(div, params);
   var widths = engraver_controller.getMeasureWidths(tune);
   var ret = wrap.calcLineWraps(tune, widths, params);
@@ -1129,6 +1154,10 @@ function doLineWrapping(div, tune, tuneNumber, abcString, params) {
     abcParser.parse(abcString, ret.revisedParams);
     tune = abcParser.getTune();
   }
+
+  tune.lineBreaks = ret.lineBreaks; //vr
+
+  if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params); //vr
 
   if (!params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, ret.revisedParams, tuneNumber);else renderEachLineSeparately(div, tune, ret.revisedParams, tuneNumber);
   tune.explanation = ret.explanation;
@@ -1414,7 +1443,7 @@ var Tune = function Tune() {
         if (element.elemset[i] !== null) es.push(element.elemset[i]);
       }
 
-      var isTiedToNext = element.startTie;
+      var isTiedToNext; //vr = element.startTie;
 
       if (isTiedState !== undefined) {
         eventHash["event" + isTiedState].elements.push(es); // Add the tied note to the first note that it is tied to
@@ -1498,9 +1527,14 @@ var Tune = function Tune() {
       }
     }
 
+    if (this.timing128) realDuration = realDuration * 128; //vr
+    else realDuration = realDuration / timeDivider; //vr
+
     return {
       isTiedState: isTiedState,
-      duration: realDuration / timeDivider,
+      duration: realDuration
+      /*//vr / timeDivider*/
+      ,
       nextIsBar: nextIsBar || element.type === 'bar'
     };
   };
@@ -1563,7 +1597,8 @@ var Tune = function Tune() {
 
     for (var v = 0; v < voices.length; v++) {
       var voiceTime = time;
-      var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+      if (this.timing128) var voiceTimeMilliseconds = voiceTime;else //vr
+        var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
       var startingRepeatElem = 0;
       var endingRepeatElem = -1;
       var elements = voices[v];
@@ -1582,13 +1617,16 @@ var Tune = function Tune() {
 
         var element = elements[elem].elem;
         var ret = this.addElementToEvents(eventHash, element, voiceTimeMilliseconds, elements[elem].top, elements[elem].height, elements[elem].line, elements[elem].measureNumber, timeDivider, isTiedState, nextIsBar);
+        if (this.timing128) element.abcelem.milliseconds128 = voiceTimeMilliseconds; //vr
+
         isTiedState = ret.isTiedState;
         nextIsBar = ret.nextIsBar;
         voiceTime += ret.duration;
         var lastHash;
         if (element.duration > 0 && eventHash["event" + voiceTimeMilliseconds]) // This won't exist if this is the end of a tie.
           lastHash = "event" + voiceTimeMilliseconds;
-        voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+        if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
+          voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 
         if (element.type === 'bar') {
           var barType = element.abcelem.type;
@@ -1621,7 +1659,8 @@ var Tune = function Tune() {
               nextIsBar = ret.nextIsBar;
               voiceTime += ret.duration;
               lastVoiceTimeMilliseconds = voiceTimeMilliseconds;
-              voiceTimeMilliseconds = Math.round(voiceTime * 1000);
+              if (this.timing128) voiceTimeMilliseconds = voiceTime;else //vr
+                voiceTimeMilliseconds = Math.round(voiceTime * 1000);
             }
 
             if (eventHash["event" + lastVoiceTimeMilliseconds]) // This won't exist if it is the beginning of the next line. That's ok because we will just count the end of the last line as the end.
@@ -2540,6 +2579,8 @@ var create;
   create = function create(abcTune, options) {
     if (options === undefined) options = {};
     var commands = abcTune.setUpAudio(options);
+    if (options.onCreateMidiCommands) options.onCreateMidiCommands(abcTune, commands); //vr
+
     var midi = rendererFactory();
     var title = abcTune.metaText ? abcTune.metaText.title : undefined;
     if (title && title.length > 128) title = title.substring(0, 124) + '...';
@@ -3325,7 +3366,9 @@ var Parse = function Parse() {
     // switches.transpose: change the key signature, chords, and notes by a number of half-steps.
     if (!switches) switches = {};
     if (!startPos) startPos = 0;
-    tuneBuilder.reset(); // Take care of whatever line endings come our way
+    tuneBuilder.reset();
+    multilineVars.firstVoiceStaffNum = switches.firstVoiceStaffNum ? switches.firstVoiceStaffNum : 0; //vr
+    // Take care of whatever line endings come our way
     // Tack on newline temporarily to make the last line continuation work
 
     strTune = strTune.replace(/\r\n?/g, '\n') + '\n'; // get rid of latex commands. If a line starts with a backslash, then it is replaced by spaces to keep the character count the same.
@@ -5684,9 +5727,10 @@ var parseKeyVoice = {};
     multilineVars = multilineVars_;
     tune = tune_;
     tuneBuilder = tuneBuilder_;
-  };
+  }; //vr content getKeys moved from parseKeyVoice.standardKey();
 
-  parseKeyVoice.standardKey = function (keyName, root, acc, localTranspose) {
+
+  function getKeys() {
     var key1sharp = {
       acc: 'sharp',
       note: 'f'
@@ -5743,7 +5787,7 @@ var parseKeyVoice = {};
       acc: 'flat',
       note: 'F'
     };
-    var keys = {
+    return {
       'C#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
       'A#m': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
       'G#Mix': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
@@ -5859,6 +5903,13 @@ var parseKeyVoice = {};
       'Gbm': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
       'none': []
     };
+  }
+
+  parseKeyVoice.getKeys = getKeys; //vr
+
+  parseKeyVoice.standardKey = function (keyName, root, acc, localTranspose) {
+    var keys = getKeys(); //vr (content getKeys() moved from here);
+
     return transpose.keySignature(multilineVars, keys, keyName, root, acc, localTranspose);
   };
 
@@ -7237,11 +7288,17 @@ MusicParser.prototype.parseMusic = function (line) {
           }
 
           if (el.decoration !== undefined) bar.decoration = el.decoration;
-          if (el.chord !== undefined) bar.chord = el.chord;
-          if (bar.startEnding && multilineVars.barFirstEndingNum === undefined) multilineVars.barFirstEndingNum = multilineVars.currBarNumber;else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum) multilineVars.currBarNumber = multilineVars.barFirstEndingNum;else if (bar.endEnding) multilineVars.barFirstEndingNum = undefined;
+          if (el.chord !== undefined) bar.chord = el.chord; //vr >>> if (bar.startEnding && multilineVars.barFirstEndingNum === undefined)
+          //	multilineVars.barFirstEndingNum = multilineVars.currBarNumber;
+          //else if (bar.startEnding && bar.endEnding && multilineVars.barFirstEndingNum)
+          //	multilineVars.currBarNumber = multilineVars.barFirstEndingNum;
+          //else if (bar.endEnding)
+          //	multilineVars.barFirstEndingNum = undefined;
 
           if (bar.type !== 'bar_invisible' && multilineVars.measureNotEmpty) {
-            var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === 0 && multilineVars.currentVoice.index === 0;
+            var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === multilineVars.firstVoiceStaffNum
+            /*//vr 0*/
+            && multilineVars.currentVoice.index === 0;
 
             if (isFirstVoice) {
               multilineVars.currBarNumber++;
@@ -8002,7 +8059,9 @@ MusicParser.prototype.startNewLine = function () {
     if (multilineVars.currentVoice.transpose) params.clef.transpose = multilineVars.currentVoice.transpose;
   }
 
-  var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === 0 && multilineVars.currentVoice.index === 0;
+  var isFirstVoice = multilineVars.currentVoice === undefined || multilineVars.currentVoice.staffNum === multilineVars.firstVoiceStaffNum
+  /*//vr 0*/
+  && multilineVars.currentVoice.index === 0;
   if (multilineVars.barNumbers === 0 && isFirstVoice && multilineVars.currBarNumber !== 1) params.barNumber = multilineVars.currBarNumber;
   tuneBuilder.startNewLine(params);
   if (multilineVars.key.impliedNaturals) delete multilineVars.key.impliedNaturals;
@@ -10057,6 +10116,10 @@ transpose.note = function (multilineVars, el) {
   }
 };
 
+transpose.accidentals = accidentals; //vr
+
+transpose.accidentals2 = accidentals2; //vr
+
 module.exports = transpose;
 
 /***/ }),
@@ -11576,21 +11639,26 @@ function calcLineWraps(tune, widths, params) {
         lineBreaks: ff.lineBreaks,
         totals: ff.totals
       });
-      lineBreaks = ff.lineBreaks; // We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
+      lineBreaks = ff.lineBreaks;
 
-      if (lineBreaks.length > 0 && section.measureWidths.length < 25) {
-        // Only do this if everything doesn't fit on one line.
-        // This is an intensive operation and it is optional so just do it for shorter music.
-        ff = optimizeLineWidths(section, lineBreakPoint, lineBreaks, explanation);
-        explanation.attempts.push({
-          type: "Optimize",
-          failed: ff.failed,
-          reason: ff.reason,
-          lineBreaks: ff.lineBreaks,
-          totals: ff.totals
-        });
-        if (!ff.failed) lineBreaks = ff.lineBreaks;
-      }
+      if (params.optimizeFreeFormLineBreaks) {
+        //vr ()on some files[ChildInTime.kar] suspended
+        // We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
+        if (lineBreaks.length > 0 && section.measureWidths.length < 25) {
+          // Only do this if everything doesn't fit on one line.
+          // This is an intensive operation and it is optional so just do it for shorter music.
+          ff = optimizeLineWidths(section, lineBreakPoint, lineBreaks, explanation);
+          explanation.attempts.push({
+            type: "Optimize",
+            failed: ff.failed,
+            reason: ff.reason,
+            lineBreaks: ff.lineBreaks,
+            totals: ff.totals
+          });
+          if (!ff.failed) lineBreaks = ff.lineBreaks;
+        }
+      } //vr
+
     }
 
     accumulatedLineBreaks.push(lineBreaks);
@@ -11783,6 +11851,7 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
             break;
 
           case "bar":
+            //?Check if (chordTrack.length > 0 && !chordTrackFinished /*//vr i === 0*/) {
             if (chordTrack.length > 0 && (chordSourceTrack === false || i === chordSourceTrack)) {
               resolveChords(lastBarTime, timeToRealTime(element.time));
               currentChords = [];
@@ -11868,8 +11937,15 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
     } // See if any notes are octaves played at the same time. If so, raise the pitch of the higher one.
 
 
-    if (options.detuneOctave) findOctaves(tracks, parseInt(options.detuneOctave, 10));
-    if (chordTrack.length > 0) tracks.push(chordTrack);
+    if (options.detuneOctave) findOctaves(tracks, parseInt(options.detuneOctave, 10)); //vr if (chordTrack.length > 0)
+
+    if (!options.ignoreChords && chordTrack.length > 0) {
+      //vr
+      options.hasChords = true; //vr
+
+      tracks.push(chordTrack);
+    }
+
     if (drumTrack.length > 0) tracks.push(drumTrack);
     return {
       tempo: startingTempo,
@@ -20081,6 +20157,7 @@ Renderer.prototype.initVerticalSpace = function () {
   are automatic.
   <float> must be between 0 (natural spacing)
   and 1 (max shrinking).
+
   // This next value is used to compute the natural spacing of
   // the notes. The base spacing of the crotchet is always
   // 40 pts. When the duration of a note type is twice the
@@ -20092,7 +20169,9 @@ Renderer.prototype.initVerticalSpace = function () {
   // semiquaver is 20 pts.
   // Setting this value to 1 sets all note spacing to 40 pts.
   noteSpacingFactor: 1.414, // Set the note spacing factor to <float> (range 1..2).
+
   scale <float> Default: 0.75 Set the page scale factor. Note that the header and footer are not scaled.
+
   stretchlast <float>Default: 0.8
   Stretch the last music line of a tune when it exceeds
   the <float> fraction of the page width.
@@ -25446,7 +25525,7 @@ module.exports = version;
 /************************************************************************/
 /******/ 	// The module cache
 /******/ 	var __webpack_module_cache__ = {};
-/******/ 	
+/******/
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
@@ -25460,23 +25539,23 @@ module.exports = version;
 /******/ 			// no module.loaded needed
 /******/ 			exports: {}
 /******/ 		};
-/******/ 	
+/******/
 /******/ 		// Execute the module function
 /******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
-/******/ 	
+/******/
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
-/******/ 	
+/******/
 /************************************************************************/
-/******/ 	
+/******/
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
 /******/ 	var __webpack_exports__ = __webpack_require__("./index.js");
-/******/ 	
+/******/
 /******/ 	return __webpack_exports__;
 /******/ })()
 ;
 });
-//# sourceMappingURL=abcjs-basic.js.map
+//# ___sourceMappingURL=abcjs-basic.js.map

@@ -255,7 +255,7 @@ var Tune = function() {
 				if (element.elemset[i] !== null)
 					es.push(element.elemset[i]);
 			}
-			var isTiedToNext = element.startTie;
+			var isTiedToNext; //vr = element.startTie;
 			if (isTiedState !== undefined) {
 				eventHash["event" + isTiedState].elements.push(es); // Add the tied note to the first note that it is tied to
 				if (nextIsBar) {
@@ -336,7 +336,9 @@ var Tune = function() {
 					isTiedState = voiceTimeMilliseconds;
 			}
 		}
-		return { isTiedState: isTiedState, duration: realDuration / timeDivider, nextIsBar: nextIsBar || element.type === 'bar' };
+		if (this.timing128) realDuration = realDuration * 128;//vr
+		else realDuration = realDuration / timeDivider;//vr
+		return { isTiedState: isTiedState, duration: realDuration /*//vr / timeDivider*/, nextIsBar: nextIsBar || element.type === 'bar' };
 	};
 
 	this.makeVoicesArray = function() {
@@ -391,6 +393,7 @@ var Tune = function() {
 		var maxVoiceTimeMilliseconds = 0;
 		for (var v = 0; v < voices.length; v++) {
 			var voiceTime = time;
+			if (this.timing128) var voiceTimeMilliseconds = voiceTime; else //vr
 			var voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 			var startingRepeatElem = 0;
 			var endingRepeatElem = -1;
@@ -407,12 +410,14 @@ var Tune = function() {
 				}
 				var element = elements[elem].elem;
 				var ret = this.addElementToEvents(eventHash, element, voiceTimeMilliseconds, elements[elem].top, elements[elem].height, elements[elem].line, elements[elem].measureNumber, timeDivider, isTiedState, nextIsBar);
+				if (this.timing128) element.abcelem.milliseconds128 = voiceTimeMilliseconds;//vr
 				isTiedState = ret.isTiedState;
 				nextIsBar = ret.nextIsBar;
 				voiceTime += ret.duration;
 				var lastHash;
 				if (element.duration > 0 && eventHash["event" + voiceTimeMilliseconds]) // This won't exist if this is the end of a tie.
 					lastHash = "event" + voiceTimeMilliseconds;
+				if (this.timing128) voiceTimeMilliseconds = voiceTime; else //vr
 				voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 				if (element.type === 'bar') {
 					var barType = element.abcelem.type;
@@ -442,6 +447,7 @@ var Tune = function() {
 							nextIsBar = ret.nextIsBar;
 							voiceTime += ret.duration;
 							lastVoiceTimeMilliseconds = voiceTimeMilliseconds;
+							if (this.timing128) voiceTimeMilliseconds = voiceTime; else //vr
 							voiceTimeMilliseconds = Math.round(voiceTime * 1000);
 						}
 						if (eventHash["event" + lastVoiceTimeMilliseconds]) // This won't exist if it is the beginning of the next line. That's ok because we will just count the end of the last line as the end.

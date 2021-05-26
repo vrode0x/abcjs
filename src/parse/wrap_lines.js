@@ -397,6 +397,7 @@ function calcLineWraps(tune, widths, params) {
 			explanation.attempts.push({type: "Free Form", lineBreaks: ff.lineBreaks, totals: ff.totals});
 			lineBreaks = ff.lineBreaks;
 
+			if (params.optimizeFreeFormLineBreaks) {//vr ()on some files[ChildInTime.kar] suspended
 			// We now have an acceptable number of lines, but the measures may not be optimally distributed. See if there is a better distribution.
 			if (lineBreaks.length > 0 && section.measureWidths.length < 25) {
 				// Only do this if everything doesn't fit on one line.
@@ -412,6 +413,7 @@ function calcLineWraps(tune, widths, params) {
 				if (!ff.failed)
 					lineBreaks = ff.lineBreaks;
 			}
+			}//vr
 		}
 		accumulatedLineBreaks.push(lineBreaks);
 		explanations.push(explanation);

@@ -221,7 +221,8 @@ var renderAbc = function(output, abc, parserParams, engraverParams, renderParams
 	        tune = doLineWrapping(div, tune, tuneNumber, abcString, params);
 	        return tune;
         }
-        else if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2)
+        if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params);//vr
+        /*//vr else*/ if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2)
             renderOne(div, tune, params, tuneNumber);
         else
             renderEachLineSeparately(div, tune, params, tuneNumber);
@@ -234,6 +235,8 @@ var renderAbc = function(output, abc, parserParams, engraverParams, renderParams
 };
 
 function doLineWrapping(div, tune, tuneNumber, abcString, params) {
+	if (params.onBeforeLineWrapping)
+		params.onBeforeLineWrapping(div, tune, tuneNumber, abcString, params);//vr
 	var engraver_controller = new EngraverController(div, params);
 	var widths = engraver_controller.getMeasureWidths(tune);
 
@@ -243,6 +246,8 @@ function doLineWrapping(div, tune, tuneNumber, abcString, params) {
         abcParser.parse(abcString, ret.revisedParams);
         tune = abcParser.getTune();
     }
+    tune.lineBreaks = ret.lineBreaks;//vr
+    if (params.onBeforeRender) params.onBeforeRender(div, tune, tuneNumber, abcString, params);//vr
     if (!params.oneSvgPerLine || tune.lines.length < 2)
         renderOne(div, tune, ret.revisedParams, tuneNumber);
     else

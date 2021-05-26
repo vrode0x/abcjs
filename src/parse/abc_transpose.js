@@ -213,4 +213,7 @@ transpose.note = function(multilineVars, el) {
 
 };
 
+transpose.accidentals = accidentals;  //vr
+transpose.accidentals2 = accidentals2;//vr
+
 module.exports = transpose;

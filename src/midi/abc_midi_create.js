@@ -12,6 +12,7 @@ var create;
 	create = function(abcTune, options) {
 		if (options === undefined) options = {};
 		var commands = abcTune.setUpAudio(options);
+		if (options.onCreateMidiCommands) options.onCreateMidiCommands(abcTune, commands);//vr
 		var midi = rendererFactory();
 
 		var title = abcTune.metaText ? abcTune.metaText.title : undefined;
