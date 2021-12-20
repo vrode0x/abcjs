@@ -7,7 +7,7 @@
   "scripts": {
     "webpack": "webpack",
     "build": "npm run build:basic && npm run webpack",
-    "build:basic": "npm run webpack -- --mode development --config-name basic",
+    "build:basic": "npm run webpack -- --mode development --config-name basic && pause",
     "build:basic-min": "npm run webpack -- --mode production --config-name basic",
     "build:plugin": "npm run webpack -- --mode production --config-name plugin",
     "test": "mocha 'tests/**/*.js'",
